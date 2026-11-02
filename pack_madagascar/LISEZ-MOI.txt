@@ -1,0 +1,51 @@
+PACK MADAGASCAR TOUR - fichiers du "pack 60% -> 100%" de ChatGPT
+===============================================================
+
+CONTENU
+-------
+backend/src/...        -> 17 fichiers (schemas, services, controllers, routes)
+frontend/src/...       -> 4 fichiers (dashboard, hotels, comments, circuits/[id])
+OPTIONNEL_a_comparer_avant/   -> api.js et AdminSidebar.jsx (voir plus bas)
+SQL_a_executer_dans_Supabase/ -> policies RLS des commentaires (manuel)
+
+COMMENT L'UTILISER
+------------------
+1. SAUVEGARDE D'ABORD : "git commit" (ou copie le dossier ProjetLicense).
+2. Dezippe ce zip DANS C:\Users\Paradisa\ProjetLicense\ (pas ailleurs).
+   Windows va proposer de fusionner les dossiers "backend" et "frontend" :
+   accepte, puis "Remplacer les fichiers dans la destination".
+   Les fichiers du zip ont le MEME chemin que les tiens, donc ils remplacent
+   les anciens et ajoutent les nouveaux (comment.*, hotels/comments pages).
+3. Ne touche PAS aux dossiers OPTIONNEL_ et SQL_ pour l'instant (voir ci-dessous).
+4. Teste :
+     cd backend  ;  npx tsc --noEmit
+     cd ..\frontend ; npm run build
+
+MODIFICATIONS PAR RAPPORT AU TEXTE DE CHATGPT (3 seulement)
+-----------------------------------------------------------
+a) comment.routes.ts : PATCH remplace par PUT (ChatGPT le demandait lui-meme).
+b) comment.controller.ts + comment.service.ts : la liste admin utilise le
+   client authentifie. Avec le client public, la RLS ne renvoie que les
+   commentaires "approved" : la moderation n'aurait jamais vu les "pending".
+c) placeImport.service.ts : j'ai remis la suppression du lieu si l'ajout des
+   medias echoue (ChatGPT l'avait retiree, ton ancienne version l'avait).
+
+CE QUI PEUT CASSER (a verifier)
+-------------------------------
+1. Colonnes : les schemas envoient "tourist_place_id" dans circuits et hotels,
+   et les services lisent "created_at" + la relation tourist_places(id,name).
+   Si ces colonnes / cles etrangeres n'existent pas dans Supabase, les listes
+   circuits/hotels renverront une erreur 500. Verifie dans Supabase.
+2. Table comments : doit avoir user_id, status, rating, tourist_place_id,
+   circuit_id (+ cles etrangeres vers tourist_places et circuits).
+3. La fonction is_admin() doit exister avant d'executer le SQL.
+4. circuitSchema exige une description d'au moins 10 caracteres : la page
+   "Circuits" peut envoyer une description vide -> erreur 422.
+5. Le backend ne verifie pas le role admin : il compte sur la RLS Supabase.
+
+OPTIONNEL (ne remplace qu'apres comparaison)
+--------------------------------------------
+api.js et AdminSidebar.jsx : je n'ai pas vu tes versions actuelles.
+Si tu les remplaces a l'aveugle, tu peux perdre un bouton de deconnexion,
+ou casser l'URL de l'API si ton .env contient deja NEXT_PUBLIC_API_URL.
+Compare avant. Si ton api.js marche deja (put/del/post), garde le tien.

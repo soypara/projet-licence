@@ -1,0 +1,14 @@
+﻿Dépose ici tes 6 photos de fond (JPG, environ 1920 px de large, moins de 400 Ko chacune) :
+
+jungle.jpg    accueil   : canopée vert émeraude, lumière filtrée, très vert
+feed.jpg      feed      : feuillage dense, gouttes, vert plus clair
+circuits.jpg  circuits  : sentier ou rivière dans la forêt humide, brume
+hotels.jpg    hôtels    : fougères, mousse, lumière douce
+lieux.jpg     lieux     : cascade ou falaise couverte de végétation
+login.jpg     connexion : feuilles de près, flou, vert profond
+
+Où chercher (gratuit, usage commercial autorisé) : unsplash.com ou pexels.com
+Mots-clés : "rainforest canopy", "jungle mist", "fern leaves", "tropical waterfall", "green leaves macro"
+Garde des photos sombres ou vertes : le texte est en blanc.
+
+Sans photo, le site affiche un fond vert dégradé : rien ne casse.

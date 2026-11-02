@@ -1,0 +1,3859 @@
+﻿
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\admin\circuits\[id]\page.jsx ==========
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { api } from "@/lib/api";
+
+export default function CircuitDetailPage() {
+  const params = useParams();
+  const id = params.id;
+
+  const [circuit, setCircuit] = useState(null);
+  const [places, setPlaces] = useState([]);
+  const [hotels, setHotels] = useState([]);
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const [form, setForm] = useState({
+    title: "",
+    description: "",
+    price: "",
+  });
+
+  async function loadData() {
+    try {
+      setLoading(true);
+      setError("");
+
+      const [
+        circuitData,
+        placesData,
+        hotelsData,
+      ] = await Promise.all([
+        api.get(`/circuits/${id}`),
+        api.get("/tourist-places"),
+        api.get("/hotels"),
+      ]);
+
+      setCircuit(circuitData);
+      setPlaces(placesData || []);
+      setHotels(hotelsData || []);
+
+      setForm({
+        title: circuitData.title || "",
+        description:
+          circuitData.description || "",
+        price: circuitData.price || "",
+      });
+    } catch (err) {
+      setError(
+        err.message ||
+          "Impossible de charger le circuit."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (id) {
+      loadData();
+    }
+  }, [id]);
+
+  async function handleSave(e) {
+    e.preventDefault();
+
+    try {
+      setSaving(true);
+      setError("");
+
+      await api.put(`/circuits/${id}`, {
+        title: form.title.trim(),
+        description:
+          form.description.trim(),
+        price: Number(form.price),
+      });
+
+      await loadData();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function addPlace(placeId) {
+    try {
+      await api.post(
+        `/circuits/${id}/places/${placeId}`,
+        {}
+      );
+
+      await loadData();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function removePlace(placeId) {
+    try {
+      await api.del(
+        `/circuits/${id}/places/${placeId}`
+      );
+
+      await loadData();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function addHotel(hotelId) {
+    try {
+      await api.post(
+        `/circuits/${id}/hotels/${hotelId}`,
+        {}
+      );
+
+      await loadData();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function removeHotel(hotelId) {
+    try {
+      await api.del(
+        `/circuits/${id}/hotels/${hotelId}`
+      );
+
+      await loadData();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="py-10 text-center">
+        Chargement...
+      </div>
+    );
+  }
+
+  if (!circuit) {
+    return (
+      <div className="py-10 text-center">
+        Circuit introuvable.
+      </div>
+    );
+  }
+
+  const linkedPlaces =
+    circuit.circuit_places || [];
+
+  const linkedHotels =
+    circuit.circuit_hotels || [];
+
+  const linkedPlaceIds =
+    linkedPlaces.map(
+      (item) => item.tourist_places?.id
+    );
+
+  const linkedHotelIds =
+    linkedHotels.map(
+      (item) => item.hotels?.id
+    );
+
+  return (
+    <div className="mx-auto max-w-7xl">
+      <Link
+        href="/admin/circuits"
+        className="text-sm text-green-700"
+      >
+        ← Retour aux circuits
+      </Link>
+
+      <div className="mb-6 mt-4">
+        <h1 className="text-2xl font-bold sm:text-3xl">
+          {circuit.title}
+        </h1>
+      </div>
+
+      {error && (
+        <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      <section className="rounded-2xl border bg-white p-4 shadow-sm sm:p-6">
+        <h2 className="text-lg font-semibold">
+          Informations
+        </h2>
+
+        <form
+          onSubmit={handleSave}
+          className="mt-4 grid gap-4"
+        >
+          <input
+            value={form.title}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                title: e.target.value,
+              })
+            }
+            className="rounded-xl border px-4 py-3"
+          />
+
+          <textarea
+            value={form.description}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                description:
+                  e.target.value,
+              })
+            }
+            rows={5}
+            className="rounded-xl border px-4 py-3"
+          />
+
+          <input
+            type="number"
+            min="0"
+            value={form.price}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                price: e.target.value,
+              })
+            }
+            className="rounded-xl border px-4 py-3"
+          />
+
+          <button
+            disabled={saving}
+            className="w-full rounded-xl bg-green-700 px-4 py-3 font-semibold text-white sm:w-fit"
+          >
+            {saving
+              ? "Enregistrement..."
+              : "Enregistrer"}
+          </button>
+        </form>
+      </section>
+
+      <section className="mt-6 rounded-2xl border bg-white p-4 shadow-sm sm:p-6">
+        <h2 className="text-lg font-semibold">
+          Lieux associés
+        </h2>
+
+        <div className="mt-4 space-y-3">
+          {places.map((place) => {
+            const linked =
+              linkedPlaceIds.includes(place.id);
+
+            return (
+              <div
+                key={place.id}
+                className="flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <span className="font-medium">
+                  {place.name}
+                </span>
+
+                {linked ? (
+                  <button
+                    onClick={() =>
+                      removePlace(place.id)
+                    }
+                    className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"
+                  >
+                    Retirer
+                  </button>
+                ) : (
+                  <button
+                    onClick={() =>
+                      addPlace(place.id)
+                    }
+                    className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700"
+                  >
+                    Ajouter
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="mt-6 rounded-2xl border bg-white p-4 shadow-sm sm:p-6">
+        <h2 className="text-lg font-semibold">
+          Hôtels associés
+        </h2>
+
+        <div className="mt-4 space-y-3">
+          {hotels.map((hotel) => {
+            const linked =
+              linkedHotelIds.includes(hotel.id);
+
+            return (
+              <div
+                key={hotel.id}
+                className="flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <p className="font-medium">
+                    {hotel.name}
+                  </p>
+
+                  <p className="text-sm text-gray-500">
+                    {hotel.address}
+                  </p>
+                </div>
+
+                {linked ? (
+                  <button
+                    onClick={() =>
+                      removeHotel(hotel.id)
+                    }
+                    className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"
+                  >
+                    Retirer
+                  </button>
+                ) : (
+                  <button
+                    onClick={() =>
+                      addHotel(hotel.id)
+                    }
+                    className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700"
+                  >
+                    Ajouter
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\admin\circuits\page.jsx ==========
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { api } from "@/lib/api";
+
+export default function AdminCircuitsPage() {
+  const [circuits, setCircuits] = useState([]);
+  const [places, setPlaces] = useState([]);
+  const [hotels, setHotels] = useState([]);
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const [search, setSearch] = useState("");
+
+  const [form, setForm] = useState({
+    title: "",
+    description: "",
+    price: "",
+    tourist_place_id: "",
+  });
+
+  const [creating, setCreating] = useState(false);
+
+  async function loadData() {
+    try {
+      setLoading(true);
+      setError("");
+
+      const [circuitsData, placesData, hotelsData] = await Promise.all([
+        api.get("/circuits"),
+        api.get("/tourist-places"),
+        api.get("/hotels"),
+      ]);
+
+      setCircuits(circuitsData || []);
+      setPlaces(placesData || []);
+      setHotels(hotelsData || []);
+    } catch (err) {
+      setError(err.message || "Impossible de charger les données.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  function handleChange(e) {
+    setForm({
+      ...form,
+      [e.target.name]: e.target.value,
+    });
+  }
+
+  async function handleCreate(e) {
+    e.preventDefault();
+
+    if (!form.title.trim()) {
+      setError("Le titre du circuit est obligatoire.");
+      return;
+    }
+
+    try {
+      setCreating(true);
+      setError("");
+
+      await api.post("/circuits", {
+        title: form.title.trim(),
+        description: form.description.trim(),
+        price: Number(form.price) || 0,
+        ...(form.tourist_place_id
+          ? { tourist_place_id: form.tourist_place_id }
+          : {}),
+      });
+
+      setForm({
+        title: "",
+        description: "",
+        price: "",
+        tourist_place_id: "",
+      });
+
+      await loadData();
+    } catch (err) {
+      setError(err.message || "Impossible de créer le circuit.");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function handleDelete(id) {
+    const confirmed = window.confirm(
+      "Voulez-vous vraiment supprimer ce circuit ?"
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setError("");
+
+      await api.del(`/circuits/${id}`);
+
+      setCircuits((current) =>
+        current.filter((circuit) => circuit.id !== id)
+      );
+    } catch (err) {
+      setError(err.message || "Impossible de supprimer le circuit.");
+    }
+  }
+
+  const filteredCircuits = circuits.filter((circuit) => {
+    const query = search.toLowerCase();
+
+    return (
+      circuit.title?.toLowerCase().includes(query) ||
+      circuit.description?.toLowerCase().includes(query)
+    );
+  });
+
+  return (
+    <div className="mx-auto max-w-7xl">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold sm:text-3xl">
+          Circuits
+        </h1>
+
+        <p className="mt-1 text-sm text-gray-500">
+          Gestion des circuits touristiques.
+        </p>
+      </div>
+
+      {error && (
+        <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      {/* Création */}
+      <section className="mb-8 rounded-2xl border bg-white p-4 shadow-sm sm:p-6">
+        <h2 className="text-lg font-semibold">
+          Ajouter un circuit
+        </h2>
+
+        <form
+          onSubmit={handleCreate}
+          className="mt-4 grid gap-4"
+        >
+          <div>
+            <label className="mb-1 block text-sm font-medium">
+              Titre
+            </label>
+
+            <input
+              type="text"
+              name="title"
+              value={form.title}
+              onChange={handleChange}
+              placeholder="Ex. Circuit Baobabs & Morondava"
+              className="w-full rounded-xl border px-4 py-3 text-sm outline-none focus:border-green-600"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium">
+              Description
+            </label>
+
+            <textarea
+              name="description"
+              value={form.description}
+              onChange={handleChange}
+              rows={4}
+              placeholder="Décrivez brièvement le circuit..."
+              className="w-full rounded-xl border px-4 py-3 text-sm outline-none focus:border-green-600"
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium">
+                Prix
+              </label>
+
+              <input
+                type="number"
+                name="price"
+                value={form.price}
+                onChange={handleChange}
+                min="0"
+                placeholder="0"
+                className="w-full rounded-xl border px-4 py-3 text-sm outline-none focus:border-green-600"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium">
+                Lieu touristique
+              </label>
+
+              <select
+                name="tourist_place_id"
+                value={form.tourist_place_id}
+                onChange={handleChange}
+                className="w-full rounded-xl border bg-white px-4 py-3 text-sm outline-none focus:border-green-600"
+              >
+                <option value="">
+                  Aucun lieu pour le moment
+                </option>
+
+                {places.map((place) => (
+                  <option key={place.id} value={place.id}>
+                    {place.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={creating}
+            className="w-full rounded-xl bg-green-700 px-4 py-3 text-sm font-semibold text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-fit"
+          >
+            {creating ? "Création..." : "Créer le circuit"}
+          </button>
+        </form>
+      </section>
+
+      {/* Liste */}
+      <section className="rounded-2xl border bg-white p-4 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">
+              Circuits existants
+            </h2>
+
+            <p className="text-sm text-gray-500">
+              {circuits.length} circuit(s)
+            </p>
+          </div>
+
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Rechercher..."
+            className="w-full rounded-xl border px-4 py-3 text-sm outline-none focus:border-green-600 sm:max-w-xs"
+          />
+        </div>
+
+        {loading ? (
+          <div className="py-10 text-center text-sm text-gray-500">
+            Chargement des circuits...
+          </div>
+        ) : filteredCircuits.length === 0 ? (
+          <div className="py-10 text-center text-sm text-gray-500">
+            Aucun circuit trouvé.
+          </div>
+        ) : (
+          <div className="mt-6 space-y-4">
+            {filteredCircuits.map((circuit) => (
+              <article
+                key={circuit.id}
+                className="rounded-xl border p-4"
+              >
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <h3 className="font-semibold">
+                      {circuit.title}
+                    </h3>
+
+                    {circuit.description && (
+                      <p className="mt-1 text-sm text-gray-600">
+                        {circuit.description}
+                      </p>
+                    )}
+
+                    <p className="mt-2 text-sm font-medium text-green-700">
+                      {Number(circuit.price || 0).toLocaleString()} MGA
+                    </p>
+                  </div>
+
+                  <div className="flex shrink-0 gap-2">
+                    <Link
+                      href={`/admin/circuits/${circuit.id}`}
+                      className="rounded-lg border px-3 py-2 text-sm font-medium hover:bg-gray-50"
+                    >
+                      Gérer
+                    </Link>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(circuit.id)}
+                      className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
+                    >
+                      Supprimer
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\admin\comments\page.jsx ==========
+"use client";
+
+import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
+
+export default function AdminCommentsPage() {
+  const [comments, setComments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  async function loadComments() {
+    try {
+      setLoading(true);
+      setError("");
+
+      const data =
+        await api.get("/comments/admin");
+
+      setComments(data || []);
+    } catch (err) {
+      setError(
+        err.message ||
+          "Impossible de charger les commentaires."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadComments();
+  }, []);
+
+  async function updateStatus(id, status) {
+    try {
+      await api.put(
+        `/comments/${id}/status`,
+        { status }
+      );
+
+      setComments((current) =>
+        current.map((comment) =>
+          comment.id === id
+            ? { ...comment, status }
+            : comment
+        )
+      );
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function remove(id) {
+    if (
+      !window.confirm(
+        "Supprimer ce commentaire ?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await api.del(`/comments/${id}`);
+
+      setComments((current) =>
+        current.filter(
+          (comment) => comment.id !== id
+        )
+      );
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  return (
+    <div className="mx-auto max-w-7xl">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold sm:text-3xl">
+          Commentaires
+        </h1>
+
+        <p className="mt-1 text-sm text-gray-500">
+          Modération des avis des utilisateurs.
+        </p>
+      </div>
+
+      {error && (
+        <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      <section className="rounded-2xl border bg-white p-4 shadow-sm sm:p-6">
+        {loading ? (
+          <p className="py-10 text-center text-sm text-gray-500">
+            Chargement...
+          </p>
+        ) : comments.length === 0 ? (
+          <p className="py-10 text-center text-sm text-gray-500">
+            Aucun commentaire.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {comments.map((comment) => (
+              <article
+                key={comment.id}
+                className="rounded-xl border p-4"
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">
+                        {"★".repeat(
+                          comment.rating || 0
+                        )}
+                      </span>
+
+                      <span className="text-xs text-gray-500">
+                        {comment.status}
+                      </span>
+                    </div>
+
+                    <p className="mt-2 text-sm text-gray-700">
+                      {comment.content}
+                    </p>
+
+                    <p className="mt-2 text-xs text-gray-500">
+                      {comment.tourist_places?.name ||
+                        comment.circuits?.title ||
+                        "Cible inconnue"}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {comment.status !==
+                      "approved" && (
+                      <button
+                        onClick={() =>
+                          updateStatus(
+                            comment.id,
+                            "approved"
+                          )
+                        }
+                        className="rounded-lg bg-green-50 px-3 py-2 text-xs font-medium text-green-700"
+                      >
+                        Approuver
+                      </button>
+                    )}
+
+                    {comment.status !==
+                      "rejected" && (
+                      <button
+                        onClick={() =>
+                          updateStatus(
+                            comment.id,
+                            "rejected"
+                          )
+                        }
+                        className="rounded-lg bg-orange-50 px-3 py-2 text-xs font-medium text-orange-700"
+                      >
+                        Rejeter
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() =>
+                        remove(comment.id)
+                      }
+                      className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-700"
+                    >
+                      Supprimer
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\admin\hotels\page.jsx ==========
+"use client";
+
+import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
+
+export default function AdminHotelsPage() {
+  const [hotels, setHotels] = useState([]);
+  const [places, setPlaces] = useState([]);
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+
+  const [form, setForm] = useState({
+    name: "",
+    address: "",
+    tourist_place_id: "",
+  });
+
+  async function loadData() {
+    try {
+      setLoading(true);
+      setError("");
+
+      const [hotelsData, placesData] =
+        await Promise.all([
+          api.get("/hotels"),
+          api.get("/tourist-places"),
+        ]);
+
+      setHotels(hotelsData || []);
+      setPlaces(placesData || []);
+    } catch (err) {
+      setError(
+        err.message ||
+          "Impossible de charger les hôtels."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  function handleChange(e) {
+    setForm((current) => ({
+      ...current,
+      [e.target.name]: e.target.value,
+    }));
+  }
+
+  async function handleCreate(e) {
+    e.preventDefault();
+
+    if (!form.name.trim()) {
+      setError("Le nom de l'hôtel est obligatoire.");
+      return;
+    }
+
+    if (!form.address.trim()) {
+      setError("L'adresse est obligatoire.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setError("");
+
+      await api.post("/hotels", {
+        name: form.name.trim(),
+        address: form.address.trim(),
+        ...(form.tourist_place_id
+          ? {
+              tourist_place_id:
+                form.tourist_place_id,
+            }
+          : {}),
+      });
+
+      setForm({
+        name: "",
+        address: "",
+        tourist_place_id: "",
+      });
+
+      await loadData();
+    } catch (err) {
+      setError(
+        err.message ||
+          "Impossible de créer l'hôtel."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(id) {
+    if (
+      !window.confirm(
+        "Supprimer cet hôtel ?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await api.del(`/hotels/${id}`);
+
+      setHotels((current) =>
+        current.filter(
+          (hotel) => hotel.id !== id
+        )
+      );
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  const filteredHotels = hotels.filter(
+    (hotel) => {
+      const query =
+        search.toLowerCase();
+
+      return (
+        hotel.name
+          ?.toLowerCase()
+          .includes(query) ||
+        hotel.address
+          ?.toLowerCase()
+          .includes(query)
+      );
+    }
+  );
+
+  return (
+    <div className="mx-auto max-w-7xl">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold sm:text-3xl">
+          Hôtels
+        </h1>
+
+        <p className="mt-1 text-sm text-gray-500">
+          Gestion des hébergements touristiques.
+        </p>
+      </div>
+
+      {error && (
+        <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      <section className="mb-8 rounded-2xl border bg-white p-4 shadow-sm sm:p-6">
+        <h2 className="text-lg font-semibold">
+          Ajouter un hôtel
+        </h2>
+
+        <form
+          onSubmit={handleCreate}
+          className="mt-4 grid gap-4"
+        >
+          <input
+            name="name"
+            value={form.name}
+            onChange={handleChange}
+            placeholder="Nom de l'hôtel"
+            className="w-full rounded-xl border px-4 py-3 text-sm"
+          />
+
+          <input
+            name="address"
+            value={form.address}
+            onChange={handleChange}
+            placeholder="Adresse"
+            className="w-full rounded-xl border px-4 py-3 text-sm"
+          />
+
+          <select
+            name="tourist_place_id"
+            value={form.tourist_place_id}
+            onChange={handleChange}
+            className="w-full rounded-xl border bg-white px-4 py-3 text-sm"
+          >
+            <option value="">
+              Aucun lieu associé
+            </option>
+
+            {places.map((place) => (
+              <option
+                key={place.id}
+                value={place.id}
+              >
+                {place.name}
+              </option>
+            ))}
+          </select>
+
+          <button
+            disabled={saving}
+            className="w-full rounded-xl bg-green-700 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50 sm:w-fit"
+          >
+            {saving
+              ? "Création..."
+              : "Créer l'hôtel"}
+          </button>
+        </form>
+      </section>
+
+      <section className="rounded-2xl border bg-white p-4 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">
+              Hôtels existants
+            </h2>
+
+            <p className="text-sm text-gray-500">
+              {hotels.length} hôtel(s)
+            </p>
+          </div>
+
+          <input
+            type="search"
+            value={search}
+            onChange={(e) =>
+              setSearch(e.target.value)
+            }
+            placeholder="Rechercher..."
+            className="w-full rounded-xl border px-4 py-3 text-sm sm:max-w-xs"
+          />
+        </div>
+
+        {loading ? (
+          <p className="py-10 text-center text-sm text-gray-500">
+            Chargement...
+          </p>
+        ) : (
+          <div className="mt-6 space-y-3">
+            {filteredHotels.map((hotel) => (
+              <article
+                key={hotel.id}
+                className="flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <h3 className="font-semibold">
+                    {hotel.name}
+                  </h3>
+
+                  <p className="mt-1 text-sm text-gray-500">
+                    {hotel.address}
+                  </p>
+                </div>
+
+                <button
+                  onClick={() =>
+                    handleDelete(hotel.id)
+                  }
+                  className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700"
+                >
+                  Supprimer
+                </button>
+              </article>
+            ))}
+
+            {filteredHotels.length === 0 && (
+              <p className="py-10 text-center text-sm text-gray-500">
+                Aucun hôtel trouvé.
+              </p>
+            )}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\admin\places\page.jsx ==========
+"use client";
+
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+
+export default function PlacesPage() {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const [selectedPlace, setSelectedPlace] = useState(null);
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [localImages, setLocalImages] = useState([]);
+
+  const [importing, setImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState("");
+
+  async function handleSearch(e) {
+    e.preventDefault();
+
+    if (!query.trim()) return;
+
+    setLoading(true);
+    setSelectedPlace(null);
+    setSelectedImages([]);
+    setLocalImages([]);
+    setImportMessage("");
+
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/place-search/search?q=${encodeURIComponent(
+          query
+        )}`
+      );
+
+      const data = await response.json();
+
+      setResults(data.results || []);
+    } catch (error) {
+      console.error("Erreur recherche :", error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleSelectPlace(place) {
+    setSelectedPlace(place);
+    setSelectedImages([]);
+    setLocalImages([]);
+    setImportMessage("");
+  }
+
+  function toggleImage(image) {
+    setSelectedImages((current) => {
+      const alreadySelected = current.some(
+        (selected) => selected.url === image.url
+      );
+
+      if (alreadySelected) {
+        return current.filter(
+          (selected) => selected.url !== image.url
+        );
+      }
+
+      return [...current, image];
+    });
+  }
+
+  function handleLocalImages(event) {
+    const files = Array.from(event.target.files || []);
+
+    const newImages = files.map((file) => ({
+      id: `${file.name}-${file.lastModified}-${Math.random()}`,
+      file,
+      url: URL.createObjectURL(file),
+      name: file.name,
+    }));
+
+    setLocalImages((current) => [...current, ...newImages]);
+
+    event.target.value = "";
+  }
+
+  function removeLocalImage(id) {
+    setLocalImages((current) => {
+      const image = current.find((item) => item.id === id);
+
+      if (image) {
+        URL.revokeObjectURL(image.url);
+      }
+
+      return current.filter((item) => item.id !== id);
+    });
+  }
+
+  async function handleImport() {
+    if (!selectedPlace) return;
+
+    if (
+      selectedImages.length === 0 &&
+      localImages.length === 0
+    ) {
+      return;
+    }
+
+    setImporting(true);
+    setImportMessage("");
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error(
+          "Vous devez être connecté pour importer un lieu."
+        );
+      }
+
+      const token = session.access_token;
+
+      /*
+       * 1. Préparation des photos Internet.
+       */
+
+      const internetMedia = selectedImages.map((image, index) => ({
+        url: image.url,
+        type: "photo",
+        alt_text: image.title,
+        caption:
+          index === 0
+            ? selectedPlace.name
+            : image.title.replace(/^Fichier:/, ""),
+        sort_order: index + 1,
+      }));
+
+      /*
+       * 2. Création du lieu + photos Internet.
+       */
+
+      const placeResponse = await fetch(
+        "http://localhost:5000/api/place-search/import",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            name: selectedPlace.name,
+            description:
+              selectedPlace.wikipedia?.description || "",
+            latitude: selectedPlace.latitude,
+            longitude: selectedPlace.longitude,
+            source_url:
+              selectedPlace.wikipedia?.sourceUrl || "",
+            media: internetMedia,
+          }),
+        }
+      );
+
+      const placeData = await placeResponse.json();
+
+      if (!placeResponse.ok) {
+        throw new Error(
+          placeData.message ||
+            "Impossible d'importer le lieu."
+        );
+      }
+
+      const placeId = placeData.place.id;
+
+      /*
+       * 3. Upload des photos locales.
+       */
+
+      for (
+        let index = 0;
+        index < localImages.length;
+        index++
+      ) {
+        const localImage = localImages[index];
+
+        const formData = new FormData();
+
+        formData.append("file", localImage.file);
+        formData.append("type", "photo");
+        formData.append("alt_text", localImage.name);
+        formData.append("entity_type", "tourist_place");
+        formData.append("entity_id", placeId);
+
+        formData.append(
+          "caption",
+          selectedImages.length === 0 && index === 0
+            ? selectedPlace.name
+            : localImage.name
+        );
+
+        formData.append(
+          "sort_order",
+          String(selectedImages.length + index + 1)
+        );
+
+        const mediaResponse = await fetch(
+          "http://localhost:5000/api/media",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            body: formData,
+          }
+        );
+
+        const mediaData = await mediaResponse.json();
+
+        if (!mediaResponse.ok) {
+          throw new Error(
+            mediaData.message ||
+              `Impossible d'importer la photo ${localImage.name}.`
+          );
+        }
+      }
+
+      setImportMessage(
+        `✅ "${selectedPlace.name}" a été importé avec succès.`
+      );
+
+      setSelectedPlace(null);
+      setSelectedImages([]);
+      setLocalImages([]);
+    } catch (error) {
+      console.error("Erreur import :", error);
+
+      setImportMessage(
+        `❌ ${
+          error.message ||
+          "Une erreur est survenue pendant l'import."
+        }`
+      );
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      localImages.forEach((image) => {
+        URL.revokeObjectURL(image.url);
+      });
+    };
+  }, [localImages]);
+
+  return (
+    <div>
+      <h1 className="text-2xl font-bold sm:text-3xl">
+        Lieux touristiques
+      </h1>
+
+      <p className="mt-2 text-sm text-gray-500 sm:text-base">
+        Rechercher un lieu touristique à Madagascar.
+      </p>
+
+      {/* Recherche */}
+      <form
+        onSubmit={handleSearch}
+        className="mt-6 flex flex-col gap-3 sm:flex-row"
+      >
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Ex. Allée des Baobabs"
+          className="w-full rounded-lg border bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-green-500"
+        />
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full rounded-lg bg-green-700 px-6 py-3 font-medium text-white hover:bg-green-800 disabled:opacity-50 sm:w-auto"
+        >
+          {loading ? "Recherche..." : "Rechercher"}
+        </button>
+      </form>
+
+      {/* Message import */}
+      {importMessage && (
+        <div className="mt-6 rounded-lg border bg-white p-4">
+          {importMessage}
+        </div>
+      )}
+
+      {/* Résultats */}
+      <div className="mt-8 space-y-6">
+        {results.map((place) => {
+          const isSelected =
+            selectedPlace?.osmType === place.osmType &&
+            selectedPlace?.osmId === place.osmId;
+
+          return (
+            <div
+              key={`${place.osmType}-${place.osmId}`}
+              className={`overflow-hidden rounded-xl border bg-white ${
+                isSelected
+                  ? "border-green-600 ring-2 ring-green-200"
+                  : ""
+              }`}
+            >
+              {/* Informations du lieu */}
+              <div className="p-4 sm:p-5">
+                <h2 className="text-lg font-semibold sm:text-xl">
+                  {place.name}
+                </h2>
+
+                <p className="mt-2 text-sm text-gray-500">
+                  {place.address}
+                </p>
+
+                <p className="mt-2 text-sm">
+                  📍 {place.latitude}, {place.longitude}
+                </p>
+
+                {place.wikipedia?.description && (
+                  <p className="mt-4 text-sm leading-relaxed text-gray-600 sm:text-base">
+                    {place.wikipedia.description}
+                  </p>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => handleSelectPlace(place)}
+                  className={`mt-5 w-full rounded-lg px-5 py-3 font-medium sm:w-auto ${
+                    isSelected
+                      ? "bg-green-100 text-green-800"
+                      : "bg-green-700 text-white hover:bg-green-800"
+                  }`}
+                >
+                  {isSelected
+                    ? "Lieu sélectionné"
+                    : "Sélectionner ce lieu"}
+                </button>
+              </div>
+
+              {/* Zone de sélection */}
+              {isSelected && (
+                <div className="border-t bg-gray-50 p-4 sm:p-5">
+                  <h3 className="text-lg font-semibold">
+                    Photos du lieu
+                  </h3>
+
+                  {/* Photos Internet */}
+                  <div className="mt-5">
+                    <h4 className="font-medium">
+                      🌐 Photos disponibles sur Internet
+                    </h4>
+
+                    {place.images?.length > 0 ? (
+                      <>
+                        <p className="mb-4 mt-1 text-sm text-gray-500">
+                          Sélectionne les photos que tu souhaites
+                          importer.
+                        </p>
+
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                          {place.images.map((image, index) => {
+                            const checked =
+                              selectedImages.some(
+                                (selected) =>
+                                  selected.url === image.url
+                              );
+
+                            return (
+                              <button
+                                type="button"
+                                key={image.url}
+                                onClick={() =>
+                                  toggleImage(image)
+                                }
+                                className={`overflow-hidden rounded-lg border-2 bg-white text-left ${
+                                  checked
+                                    ? "border-green-600 ring-2 ring-green-200"
+                                    : "border-transparent"
+                                }`}
+                              >
+                                <img
+                                  src={image.url}
+                                  alt={image.title}
+                                  className="h-56 w-full object-cover sm:h-64"
+                                />
+
+                                <div className="p-3">
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      readOnly
+                                    />
+
+                                    <span className="text-sm font-medium">
+                                      Photo {index + 1}
+                                    </span>
+                                  </div>
+
+                                  <p className="mt-1 text-xs text-gray-500">
+                                    {image.title.replace(
+                                      /^Fichier:/,
+                                      ""
+                                    )}
+                                  </p>
+
+                                  {image.license && (
+                                    <p className="mt-2 text-xs text-gray-400">
+                                      Licence : {image.license}
+                                    </p>
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </>
+                    ) : (
+                      <p className="mt-2 text-sm text-gray-500">
+                        Aucune photo disponible depuis cette
+                        source.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Photos locales */}
+                  <div className="mt-8">
+                    <h4 className="font-medium">
+                      💻 Photos depuis l'appareil
+                    </h4>
+
+                    <p className="mt-1 text-sm text-gray-500">
+                      Ajoute tes propres photos si nécessaire.
+                    </p>
+
+                    <label className="mt-4 inline-flex w-full cursor-pointer items-center justify-center rounded-lg border border-gray-300 bg-white px-5 py-3 font-medium text-gray-700 hover:bg-gray-100 sm:w-auto">
+                      + Ajouter des photos
+
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleLocalImages}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {localImages.length > 0 && (
+                      <div className="mt-5">
+                        <p className="mb-3 text-sm font-medium">
+                          Photos locales ajoutées :{" "}
+                          {localImages.length}
+                        </p>
+
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                          {localImages.map((image) => (
+                            <div
+                              key={image.id}
+                              className="overflow-hidden rounded-lg border bg-white"
+                            >
+                              <img
+                                src={image.url}
+                                alt={image.name}
+                                className="h-56 w-full object-cover sm:h-64"
+                              />
+
+                              <div className="flex items-center justify-between gap-3 p-3">
+                                <p className="truncate text-sm">
+                                  {image.name}
+                                </p>
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    removeLocalImage(image.id)
+                                  }
+                                  className="shrink-0 text-sm text-red-600 hover:text-red-800"
+                                >
+                                  Retirer
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Import */}
+                  {(selectedImages.length > 0 ||
+                    localImages.length > 0) && (
+                    <div className="mt-8 rounded-xl border bg-white p-4 sm:p-5">
+                      <h3 className="text-lg font-semibold">
+                        Prêt à importer
+                      </h3>
+
+                      <p className="mt-2 text-sm text-gray-600">
+                        <strong>{place.name}</strong>
+                      </p>
+
+                      <p className="mt-1 text-sm text-gray-500">
+                        {selectedImages.length} photo
+                        {selectedImages.length > 1 ? "s" : ""}{" "}
+                        Internet + {localImages.length} photo
+                        {localImages.length > 1 ? "s" : ""} locale
+                        {localImages.length > 1 ? "s" : ""}
+                      </p>
+
+                      <button
+                        type="button"
+                        onClick={handleImport}
+                        disabled={importing}
+                        className="mt-4 w-full rounded-lg bg-green-700 px-6 py-3 font-medium text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                      >
+                        {importing
+                          ? "Importation en cours..."
+                          : "Importer ce lieu"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\admin\layout.jsx ==========
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
+import { getCurrentUser, getCurrentRole } from "@/lib/auth";
+import AdminSidebar from "@/components/admin/AdminSidebar";
+
+export default function AdminLayout({ children }) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function checkAccess() {
+      const user = await getCurrentUser();
+
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+
+      const role = await getCurrentRole();
+
+      if (role !== "admin" && role !== "super_admin") {
+        router.replace("/");
+        return;
+      }
+
+      setLoading(false);
+    }
+
+    checkAccess();
+  }, [router]);
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center">
+        <p>Vérification des accès...</p>
+      </main>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <AdminSidebar />
+
+      <main className="min-h-screen p-4 sm:p-6 lg:ml-64 lg:p-8">
+        {children}
+      </main>
+    </div>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\admin\page.jsx ==========
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { api } from "@/lib/api";
+
+export default function AdminPage() {
+  const [stats, setStats] = useState({
+    places: 0,
+    circuits: 0,
+    hotels: 0,
+    comments: 0,
+  });
+
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadStats() {
+      try {
+        const [
+          places,
+          circuits,
+          hotels,
+          comments,
+        ] = await Promise.all([
+          api.get("/tourist-places"),
+          api.get("/circuits"),
+          api.get("/hotels"),
+          api.get("/comments/admin"),
+        ]);
+
+        setStats({
+          places: places?.length || 0,
+          circuits: circuits?.length || 0,
+          hotels: hotels?.length || 0,
+          comments: comments?.length || 0,
+        });
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadStats();
+  }, []);
+
+  const cards = [
+    {
+      label: "Lieux touristiques",
+      value: stats.places,
+      href: "/admin/places",
+    },
+    {
+      label: "Circuits",
+      value: stats.circuits,
+      href: "/admin/circuits",
+    },
+    {
+      label: "Hôtels",
+      value: stats.hotels,
+      href: "/admin/hotels",
+    },
+    {
+      label: "Commentaires",
+      value: stats.comments,
+      href: "/admin/comments",
+    },
+  ];
+
+  return (
+    <div className="mx-auto max-w-7xl">
+      <h1 className="text-2xl font-bold sm:text-3xl">
+        Dashboard
+      </h1>
+
+      <p className="mt-2 text-sm text-gray-500">
+        Vue générale de Madagascar Tour.
+      </p>
+
+      <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {cards.map((card) => (
+          <Link
+            key={card.label}
+            href={card.href}
+            className="rounded-2xl border bg-white p-4 shadow-sm transition hover:shadow-md"
+          >
+            <p className="text-sm text-gray-500">
+              {card.label}
+            </p>
+
+            <p className="mt-2 text-2xl font-bold">
+              {loading ? "…" : card.value}
+            </p>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\circuits\[id]\page.jsx ==========
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { api } from "../../../lib/api";
+
+export default function CircuitDetailPage() {
+  const { id } = useParams();
+  const router = useRouter();
+
+  const [circuit, setCircuit] = useState(null);
+  const [places, setPlaces] = useState([]);
+  const [hotels, setHotels] = useState([]);
+  const [media, setMedia] = useState([]);
+  const [selectedPlace, setSelectedPlace] = useState("");
+  const [selectedHotel, setSelectedHotel] = useState("");
+  const [editForm, setEditForm] = useState(null);
+  const [file, setFile] = useState(null);
+  const [error, setError] = useState("");
+
+  async function loadAll() {
+    try {
+      const [c, p, h, m] = await Promise.all([
+        api.get(`/circuits/${id}`),
+        api.get("/tourist-places"),
+        api.get("/hotels"),
+        api.get(`/media/circuit/${id}`),
+      ]);
+      setCircuit(c);
+      setEditForm({ title: c.title, description: c.description, price: c.price });
+      setPlaces(p);
+      setHotels(h);
+      setMedia(m);
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  async function handleUpdate(e) {
+    e.preventDefault();
+    try {
+      await api.put(`/circuits/${id}`, {
+        ...editForm,
+        price: Number(editForm.price),
+      });
+      loadAll();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function handleDeleteCircuit() {
+    if (!confirm("Supprimer ce circuit ?")) return;
+    await api.del(`/circuits/${id}`);
+    router.push("/circuits");
+  }
+
+  async function linkPlace() {
+    if (!selectedPlace) return;
+    try {
+      await api.post(`/circuits/${id}/places/${selectedPlace}`, {});
+      setSelectedPlace("");
+      loadAll();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function unlinkPlace(placeId) {
+    await api.del(`/circuits/${id}/places/${placeId}`);
+    loadAll();
+  }
+
+  async function linkHotel() {
+    if (!selectedHotel) return;
+    try {
+      await api.post(`/circuits/${id}/hotels/${selectedHotel}`, {});
+      setSelectedHotel("");
+      loadAll();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function unlinkHotel(hotelId) {
+    await api.del(`/circuits/${id}/hotels/${hotelId}`);
+    loadAll();
+  }
+
+  async function handleUpload(e) {
+    e.preventDefault();
+    if (!file) return;
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("entity_type", "circuit");
+    formData.append("entity_id", id);
+    try {
+      await api.post("/media", formData);
+      setFile(null);
+      loadAll();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function handleDeleteMedia(mediaId) {
+    await api.del(`/media/${mediaId}`);
+    loadAll();
+  }
+
+  if (!circuit || !editForm) {
+    return <p className="empty-state">Chargement…</p>;
+  }
+
+  const linkedPlaceIds = (circuit.circuit_places || []).map(
+    (cp) => cp.tourist_places?.id
+  );
+  const linkedHotelIds = (circuit.circuit_hotels || []).map(
+    (ch) => ch.hotels?.id
+  );
+
+  return (
+    <div className="space-y-6">
+      {error && <p className="text-red-600 text-sm">{error}</p>}
+
+      <div>
+        <p className="section-title">Circuit</p>
+        <h1 className="page-title">{circuit.title}</h1>
+      </div>
+
+      <section className="card space-y-3">
+        <form onSubmit={handleUpdate} className="space-y-3">
+          <div>
+            <label className="label">Titre</label>
+            <input
+              className="input"
+              value={editForm.title}
+              onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="label">Description</label>
+            <textarea
+              className="input"
+              rows={3}
+              value={editForm.description}
+              onChange={(e) =>
+                setEditForm({ ...editForm, description: e.target.value })
+              }
+            />
+          </div>
+          <div>
+            <label className="label">Prix (Ar)</label>
+            <input
+              className="input"
+              type="number"
+              value={editForm.price}
+              onChange={(e) => setEditForm({ ...editForm, price: e.target.value })}
+            />
+          </div>
+          <div className="flex items-center gap-4 pt-1">
+            <button className="btn-primary">Enregistrer</button>
+            <button
+              type="button"
+              onClick={handleDeleteCircuit}
+              className="btn-danger-ghost"
+            >
+              Supprimer le circuit
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section className="card space-y-3">
+        <p className="section-title mb-0">Lieux touristiques liés</p>
+        <ul className="space-y-1.5">
+          {(circuit.circuit_places || []).map((cp) => (
+            <li
+              key={cp.tourist_places.id}
+              className="flex justify-between items-center text-sm bg-paper rounded-lg px-3 py-2"
+            >
+              {cp.tourist_places.name}
+              <button
+                onClick={() => unlinkPlace(cp.tourist_places.id)}
+                className="btn-danger-ghost"
+              >
+                Retirer
+              </button>
+            </li>
+          ))}
+          {linkedPlaceIds.length === 0 && (
+            <p className="empty-state !py-1">Aucun lieu lié.</p>
+          )}
+        </ul>
+        <div className="flex gap-2 pt-1">
+          <select
+            className="input flex-1"
+            value={selectedPlace}
+            onChange={(e) => setSelectedPlace(e.target.value)}
+          >
+            <option value="">— choisir un lieu —</option>
+            {places
+              .filter((p) => !linkedPlaceIds.includes(p.id))
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+          </select>
+          <button onClick={linkPlace} className="btn-secondary">
+            Ajouter
+          </button>
+        </div>
+      </section>
+
+      <section className="card space-y-3">
+        <p className="section-title mb-0">Hôtels liés</p>
+        <ul className="space-y-1.5">
+          {(circuit.circuit_hotels || []).map((ch) => (
+            <li
+              key={ch.hotels.id}
+              className="flex justify-between items-center text-sm bg-paper rounded-lg px-3 py-2"
+            >
+              {ch.hotels.name}
+              <button
+                onClick={() => unlinkHotel(ch.hotels.id)}
+                className="btn-danger-ghost"
+              >
+                Retirer
+              </button>
+            </li>
+          ))}
+          {linkedHotelIds.length === 0 && (
+            <p className="empty-state !py-1">Aucun hôtel lié.</p>
+          )}
+        </ul>
+        <div className="flex gap-2 pt-1">
+          <select
+            className="input flex-1"
+            value={selectedHotel}
+            onChange={(e) => setSelectedHotel(e.target.value)}
+          >
+            <option value="">— choisir un hôtel —</option>
+            {hotels
+              .filter((h) => !linkedHotelIds.includes(h.id))
+              .map((h) => (
+                <option key={h.id} value={h.id}>
+                  {h.name}
+                </option>
+              ))}
+          </select>
+          <button onClick={linkHotel} className="btn-secondary">
+            Ajouter
+          </button>
+        </div>
+      </section>
+
+      <section className="card space-y-3">
+        <p className="section-title mb-0">Médias</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {media.map((m) => (
+            <div key={m.id} className="relative group">
+              {m.type === "photo" ? (
+                <img
+                  src={m.url}
+                  alt={m.alt_text || ""}
+                  className="w-full h-24 object-cover rounded-lg border border-line"
+                />
+              ) : (
+                <video
+                  src={m.url}
+                  className="w-full h-24 object-cover rounded-lg border border-line"
+                  controls
+                />
+              )}
+              <button
+                onClick={() => handleDeleteMedia(m.id)}
+                className="absolute top-1 right-1 bg-ink/80 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center hover:bg-red-600"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+          {media.length === 0 && (
+            <p className="empty-state col-span-full !py-1">
+              Aucun média pour l&apos;instant.
+            </p>
+          )}
+        </div>
+        <form onSubmit={handleUpload} className="flex gap-2 items-center pt-1">
+          <input
+            type="file"
+            accept="image/*,video/*"
+            onChange={(e) => setFile(e.target.files[0])}
+            className="text-sm flex-1"
+          />
+          <button className="btn-primary">Envoyer</button>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\circuits\page.jsx ==========
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { api } from "../../lib/api";
+
+export default function CircuitsPage() {
+  const [circuits, setCircuits] = useState([]);
+  const [form, setForm] = useState({ title: "", description: "", price: "" });
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  async function load() {
+    setLoading(true);
+    try {
+      setCircuits(await api.get("/circuits"));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
+  }, []);
+
+  async function handleCreate(e) {
+    e.preventDefault();
+    setError("");
+    try {
+      await api.post("/circuits", {
+        title: form.title,
+        description: form.description,
+        price: Number(form.price),
+      });
+      setForm({ title: "", description: "", price: "" });
+      load();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function handleDelete(id) {
+    if (!confirm("Supprimer ce circuit ?")) return;
+    try {
+      await api.del(`/circuits/${id}`);
+      load();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <p className="section-title">Catalogue</p>
+        <h1 className="page-title">Circuits</h1>
+      </div>
+
+      {error && <p className="text-red-600 text-sm">{error}</p>}
+
+      <form onSubmit={handleCreate} className="card space-y-3">
+        <p className="section-title mb-0">Créer un circuit</p>
+        <div>
+          <label className="label">Titre</label>
+          <input
+            className="input"
+            value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+            required
+          />
+        </div>
+        <div>
+          <label className="label">Description</label>
+          <textarea
+            className="input"
+            rows={3}
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            required
+          />
+        </div>
+        <div>
+          <label className="label">Prix (Ar)</label>
+          <input
+            className="input"
+            type="number"
+            value={form.price}
+            onChange={(e) => setForm({ ...form, price: e.target.value })}
+            required
+          />
+        </div>
+        <button className="btn-primary">Créer</button>
+      </form>
+
+      {loading ? (
+        <p className="empty-state">Chargement…</p>
+      ) : (
+        <ul className="space-y-2">
+          {circuits.map((c) => (
+            <li
+              key={c.id}
+              className="card flex justify-between items-center py-3"
+            >
+              <div>
+                <Link
+                  href={`/circuits/${c.id}`}
+                  className="font-medium text-ink hover:text-terre"
+                >
+                  {c.title}
+                </Link>
+                <p className="text-xs text-ink/50 mt-0.5">{c.price} Ar</p>
+              </div>
+              <button
+                onClick={() => handleDelete(c.id)}
+                className="btn-danger-ghost"
+              >
+                Supprimer
+              </button>
+            </li>
+          ))}
+          {circuits.length === 0 && (
+            <p className="empty-state">Aucun circuit pour l&apos;instant.</p>
+          )}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\feed\page.jsx ==========
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+
+import { api } from "../../lib/api";
+
+/* =========================================================
+   SQUELETTE
+   ========================================================= */
+
+function FeedSkeleton() {
+  return (
+    <article className="card space-y-4 animate-pulse">
+      <div className="w-full h-[420px] rounded-lg bg-ink/10" />
+
+      <div className="flex justify-center gap-1.5">
+        <div className="h-2 w-2 rounded-full bg-ink/10" />
+        <div className="h-2 w-2 rounded-full bg-ink/10" />
+        <div className="h-2 w-2 rounded-full bg-ink/10" />
+      </div>
+
+      <div className="flex gap-4">
+        <div className="h-5 w-24 rounded bg-ink/10" />
+        <div className="h-5 w-24 rounded bg-ink/10" />
+        <div className="h-5 w-24 rounded bg-ink/10" />
+      </div>
+
+      <div className="space-y-2">
+        <div className="h-3 w-full rounded bg-ink/10" />
+        <div className="h-3 w-11/12 rounded bg-ink/10" />
+        <div className="h-3 w-3/4 rounded bg-ink/10" />
+      </div>
+    </article>
+  );
+}
+
+/* =========================================================
+   ÉTOILES
+   ========================================================= */
+
+function RatingDisplay({ rating = null }) {
+  const value =
+    typeof rating === "number" ? rating : null;
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-sm text-ink/70">Note</span>
+
+      <div className="flex items-center gap-0.5">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <span
+            key={star}
+            className={
+              value !== null && star <= Math.round(value)
+                ? "text-terre"
+                : "text-ink/20"
+            }
+          >
+            ★
+          </span>
+        ))}
+      </div>
+
+      <span className="text-sm text-ink/60">
+        {value !== null ? `${value.toFixed(1)}/5` : "Pas encore noté"}
+      </span>
+    </div>
+  );
+}
+
+/* =========================================================
+   CAROUSEL
+   ========================================================= */
+
+function PhotoCarousel({ place, media }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const carouselRef = useRef(null);
+
+  if (!media || media.length === 0) {
+    return (
+      <div className="relative w-full h-[420px] bg-paper rounded-lg flex items-center justify-center overflow-hidden">
+        <div className="text-center text-ink/40">
+          <div className="text-4xl mb-2">📷</div>
+          <p className="text-sm">Pas encore de photo</p>
+        </div>
+      </div>
+    );
+  }
+
+  function handleScroll() {
+    const carousel = carouselRef.current;
+
+    if (!carousel) return;
+
+    const slideWidth = carousel.clientWidth;
+    const index = Math.round(
+      carousel.scrollLeft / slideWidth
+    );
+
+    setActiveIndex(index);
+  }
+
+  return (
+    <div className="space-y-3">
+      <div
+        ref={carouselRef}
+        onScroll={handleScroll}
+        className="flex gap-2 overflow-x-auto snap-x snap-mandatory rounded-lg scrollbar-hide scroll-smooth"
+      >
+        {media.map((item, index) => {
+          const caption =
+            index === 0
+              ? place.name
+              : item.caption || "";
+
+          return (
+            <div
+              key={item.id}
+              className="relative snap-center snap-always flex-none w-full"
+            >
+              {item.type === "photo" ? (
+                <img
+                  src={item.url}
+                  alt={item.alt_text || place.name}
+                  className="w-full h-[420px] object-cover rounded-lg"
+                />
+              ) : (
+                <video
+                  src={item.url}
+                  className="w-full h-[420px] object-cover rounded-lg"
+                  controls
+                />
+              )}
+
+              {/* Overlay sombre */}
+              <div className="absolute inset-x-0 bottom-0 rounded-b-lg bg-gradient-to-t from-black/70 via-black/30 to-transparent p-5 pt-16">
+                <p className="text-white text-base font-medium drop-shadow">
+                  {caption}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Points */}
+      {media.length > 1 && (
+        <div className="flex justify-center gap-1.5">
+          {media.map((item, index) => (
+            <span
+              key={item.id}
+              className={`h-2 w-2 rounded-full transition-all ${
+                index === activeIndex
+                  ? "bg-terre scale-110"
+                  : "bg-ink/15"
+              }`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* =========================================================
+   POST
+   ========================================================= */
+
+function FeedPost({ place, media }) {
+  const router = useRouter();
+
+  function openMap() {
+    router.push(
+      `/map?lat=${encodeURIComponent(
+        place.latitude
+      )}&lng=${encodeURIComponent(
+        place.longitude
+      )}&place=${encodeURIComponent(place.name)}`
+    );
+  }
+
+  function openComments() {
+    router.push(
+      `/tourist-places/${place.id}/comments`
+    );
+  }
+
+  function openDetails() {
+    router.push(`/tourist-places/${place.id}`);
+  }
+
+  return (
+    <article className="card space-y-4">
+      {/* Photos */}
+      <PhotoCarousel
+        place={place}
+        media={media}
+      />
+
+      {/* Informations */}
+      <div className="space-y-3">
+        {/* Localisation + note */}
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <button
+            type="button"
+            onClick={openMap}
+            className="flex items-center gap-2 text-sm text-ink/70 hover:text-terre transition"
+          >
+            <span className="text-lg">📍</span>
+            <span>Localisation</span>
+          </button>
+
+          <RatingDisplay rating={place.rating} />
+        </div>
+
+        {/* Description */}
+        {place.description && (
+          <p className="text-sm text-ink/70 leading-relaxed">
+            {place.description}
+          </p>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-5 pt-3 border-t border-ink/10 flex-wrap">
+        <button
+          type="button"
+          onClick={openComments}
+          className="text-sm text-ink/70 hover:text-terre transition"
+        >
+          💬 Commentaire
+        </button>
+
+        <button
+          type="button"
+          onClick={openDetails}
+          className="text-sm text-terre hover:text-terre-dark transition font-medium"
+        >
+          👁️ Voir plus
+        </button>
+      </div>
+    </article>
+  );
+}
+
+/* =========================================================
+   FEED
+   ========================================================= */
+
+export default function FeedPage() {
+  const [places, setPlaces] = useState([]);
+  const [mediaByPlace, setMediaByPlace] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const list = await api.get("/tourist-places");
+
+        const placesList = Array.isArray(list)
+          ? list
+          : [];
+
+        setPlaces(placesList);
+
+        if (placesList.length > 0) {
+          const entries = await Promise.all(
+            placesList.map(async (place) => {
+              try {
+                const media = await api.get(
+                  `/media/tourist_place/${place.id}`
+                );
+
+                return [
+                  place.id,
+                  Array.isArray(media)
+                    ? media.sort(
+                        (a, b) =>
+                          (a.sort_order || 1) -
+                          (b.sort_order || 1)
+                      )
+                    : [],
+                ];
+              } catch {
+                return [place.id, []];
+              }
+            })
+          );
+
+          setMediaByPlace(
+            Object.fromEntries(entries)
+          );
+        }
+      } catch (e) {
+        setError(
+          e.message ||
+            "Impossible de charger le feed."
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    load();
+  }, []);
+
+  const SKELETON_COUNT = 6;
+
+  return (
+    <div className="space-y-6">
+      {/* En-tête */}
+      <div>
+        <p className="section-title">
+          Découvrir
+        </p>
+
+        <h1 className="page-title">
+          Le feed
+        </h1>
+      </div>
+
+      {/* Erreur */}
+      {error && (
+        <p className="text-red-600 text-sm">
+          {error}
+        </p>
+      )}
+
+      <div className="space-y-8">
+        {/* Chargement */}
+        {loading &&
+          Array.from({
+            length: 3,
+          }).map((_, index) => (
+            <FeedSkeleton
+              key={`loading-${index}`}
+            />
+          ))}
+
+        {/* Données réelles */}
+        {!loading &&
+          places.map((place) => (
+            <FeedPost
+              key={place.id}
+              place={place}
+              media={
+                mediaByPlace[place.id] || []
+              }
+            />
+          ))}
+
+        {/* Squelettes infinis */}
+        {!loading &&
+          Array.from({
+            length: SKELETON_COUNT,
+          }).map((_, index) => (
+            <FeedSkeleton
+              key={`skeleton-${index}`}
+            />
+          ))}
+      </div>
+    </div>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\hotels\page.jsx ==========
+"use client";
+
+import { useEffect, useState } from "react";
+import { api } from "../../lib/api";
+
+export default function HotelsPage() {
+  const [hotels, setHotels] = useState([]);
+  const [form, setForm] = useState({ name: "", address: "" });
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const [error, setError] = useState("");
+
+  async function load() {
+    try {
+      setHotels(await api.get("/hotels"));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
+  }, []);
+
+  async function handleCreate(e) {
+    e.preventDefault();
+    setError("");
+    try {
+      await api.post("/hotels", form);
+      setForm({ name: "", address: "" });
+      load();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  function startEdit(h) {
+    setEditingId(h.id);
+    setEditForm({ name: h.name, address: h.address });
+  }
+
+  async function saveEdit(id) {
+    try {
+      await api.put(`/hotels/${id}`, editForm);
+      setEditingId(null);
+      load();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function handleDelete(id) {
+    if (!confirm("Supprimer cet hôtel ?")) return;
+    try {
+      await api.del(`/hotels/${id}`);
+      load();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <p className="section-title">Catalogue</p>
+        <h1 className="page-title">Hôtels</h1>
+      </div>
+
+      {error && <p className="text-red-600 text-sm">{error}</p>}
+
+      <form onSubmit={handleCreate} className="card space-y-3">
+        <p className="section-title mb-0">Créer un hôtel</p>
+        <div>
+          <label className="label">Nom</label>
+          <input
+            className="input"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            required
+          />
+        </div>
+        <div>
+          <label className="label">Adresse</label>
+          <input
+            className="input"
+            value={form.address}
+            onChange={(e) => setForm({ ...form, address: e.target.value })}
+            required
+          />
+        </div>
+        <button className="btn-primary">Créer</button>
+      </form>
+
+      <ul className="space-y-2">
+        {hotels.map((h) => (
+          <li key={h.id} className="card py-3">
+            {editingId === h.id ? (
+              <div className="space-y-3">
+                <div>
+                  <label className="label">Nom</label>
+                  <input
+                    className="input"
+                    value={editForm.name}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, name: e.target.value })
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="label">Adresse</label>
+                  <input
+                    className="input"
+                    value={editForm.address}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, address: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="flex gap-4 items-center">
+                  <button
+                    onClick={() => saveEdit(h.id)}
+                    className="btn-secondary"
+                  >
+                    Enregistrer
+                  </button>
+                  <button
+                    onClick={() => setEditingId(null)}
+                    className="text-sm text-ink/50 underline underline-offset-2"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="font-medium text-ink text-sm">{h.name}</p>
+                  <p className="text-xs text-ink/50 mt-0.5">{h.address}</p>
+                </div>
+                <div className="flex gap-4">
+                  <button onClick={() => startEdit(h)} className="btn-ghost">
+                    Modifier
+                  </button>
+                  <button
+                    onClick={() => handleDelete(h.id)}
+                    className="btn-danger-ghost"
+                  >
+                    Supprimer
+                  </button>
+                </div>
+              </div>
+            )}
+          </li>
+        ))}
+        {hotels.length === 0 && (
+          <p className="empty-state">Aucun hôtel pour l&apos;instant.</p>
+        )}
+      </ul>
+    </div>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\login\page.jsx ==========
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+
+export default function LoginPage() {
+  const router = useRouter();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleLogin(event) {
+    event.preventDefault();
+
+    setError("");
+    setLoading(true);
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+      return;
+    }
+
+    router.push("/");
+    router.refresh();
+  }
+
+  return (
+    <main className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
+      <form
+        onSubmit={handleLogin}
+        className="w-full max-w-md space-y-5 rounded-2xl bg-white p-8 shadow"
+      >
+        <div>
+          <h1 className="text-2xl font-bold">Connexion</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Connecte-toi à ton compte.
+          </p>
+        </div>
+
+        <div>
+          <label htmlFor="email" className="mb-1 block text-sm font-medium">
+            Email
+          </label>
+          <input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
+            className="w-full rounded-lg border px-3 py-2"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="password" className="mb-1 block text-sm font-medium">
+            Mot de passe
+          </label>
+          <input
+            id="password"
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+            className="w-full rounded-lg border px-3 py-2"
+          />
+        </div>
+
+        {error && (
+          <p className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+            {error}
+          </p>
+        )}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full rounded-lg bg-green-700 px-4 py-2 font-medium text-white disabled:opacity-50"
+        >
+          {loading ? "Connexion..." : "Se connecter"}
+        </button>
+      </form>
+    </main>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\test-auth\page.jsx ==========
+"use client";
+
+import { useEffect, useState } from "react";
+import { getCurrentUser, getCurrentRole } from "@/lib/auth";
+
+export default function TestAuth() {
+  const [user, setUser] = useState(null);
+  const [role, setRole] = useState(null);
+
+  useEffect(() => {
+    async function load() {
+      setUser(await getCurrentUser());
+      setRole(await getCurrentRole());
+    }
+
+    load();
+  }, []);
+
+  return (
+    <main className="p-8">
+      <h1 className="text-2xl font-bold">Test Auth</h1>
+
+      <p className="mt-4">
+        Email : {user?.email || "Non connecté"}
+      </p>
+
+      <p>
+        Rôle : {role || "Chargement..."}
+      </p>
+    </main>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\test-auth-backend\page.jsx ==========
+"use client";
+
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+
+export default function TestAuthBackend() {
+  const [result, setResult] = useState(null);
+
+  useEffect(() => {
+    async function test() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        setResult({ error: "Aucune session Supabase." });
+        return;
+      }
+
+      const response = await fetch(
+        "http://localhost:5000/api/place-search/import",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            name: "Allée des Baobabs",
+            description:
+              "L’allée des baobabs ou avenue des baobabs est un groupe de baobabs dans la région de Menabe à Madagascar.",
+            latitude: -20.2503296,
+            longitude: 44.4192658,
+            source_url:
+              "https://fr.wikipedia.org/wiki/All%C3%A9e_des_baobabs",
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      setResult({
+        status: response.status,
+        data,
+      });
+    }
+
+    test();
+  }, []);
+
+  return (
+    <main className="p-8">
+      <h1 className="text-2xl font-bold">Test Import Backend</h1>
+
+      <pre className="mt-4 rounded bg-gray-100 p-4">
+        {JSON.stringify(result, null, 2)}
+      </pre>
+    </main>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\tourist-places\new\page.jsx ==========
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { api } from "../../../lib/api";
+
+export default function NewTouristPlacePage() {
+  const router = useRouter();
+
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [preview, setPreview] = useState(null);
+  const [form, setForm] = useState({
+    name: "",
+    description: "",
+    latitude: "",
+    longitude: "",
+    source_url: "",
+  });
+  const [keepThumbnail, setKeepThumbnail] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSearch(e) {
+    e.preventDefault();
+    if (!query.trim()) return;
+    setSearching(true);
+    setError("");
+    try {
+      setResults(await api.get(`/wikipedia/search?q=${encodeURIComponent(query)}`));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  async function handlePreview(title) {
+    setError("");
+    try {
+      const data = await api.get(`/wikipedia/summary?title=${encodeURIComponent(title)}`);
+      setPreview(data);
+      setForm({
+        name: data.title,
+        description: data.description,
+        latitude: data.latitude ?? "",
+        longitude: data.longitude ?? "",
+        source_url: data.sourceUrl,
+      });
+      setKeepThumbnail(Boolean(data.thumbnailUrl));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function handleSave(e) {
+    e.preventDefault();
+    setError("");
+    setSaving(true);
+    try {
+      const place = await api.post("/tourist-places", {
+        name: form.name,
+        description: form.description,
+        latitude: Number(form.latitude),
+        longitude: Number(form.longitude),
+        source_url: form.source_url || undefined,
+      });
+
+      if (keepThumbnail && preview?.thumbnailUrl) {
+        await api.post("/media/from-url", {
+          url: preview.thumbnailUrl,
+          type: "photo",
+          alt_text: `Photo depuis Wikipédia — ${preview.title}`,
+          entity_type: "tourist_place",
+          entity_id: place.id,
+        });
+      }
+
+      router.push("/tourist-places");
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <p className="section-title">Catalogue</p>
+        <h1 className="page-title">Ajouter un lieu</h1>
+      </div>
+
+      {error && <p className="text-red-600 text-sm">{error}</p>}
+
+      <section className="card space-y-3">
+        <p className="section-title mb-0">1. Rechercher sur Wikipédia (optionnel)</p>
+        <form onSubmit={handleSearch} className="flex gap-2">
+          <input
+            className="input flex-1"
+            placeholder="Ex. Avenue des Baobabs"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <button className="btn-secondary" disabled={searching}>
+            {searching ? "Recherche…" : "Rechercher"}
+          </button>
+        </form>
+
+        {results.length > 0 && (
+          <ul className="space-y-1.5 pt-1">
+            {results.map((r) => (
+              <li
+                key={r.title}
+                className="bg-paper rounded-lg px-3 py-2 flex justify-between items-start gap-3"
+              >
+                <div>
+                  <p className="text-sm font-medium text-ink">{r.title}</p>
+                  <p className="text-xs text-ink/50">{r.snippet}</p>
+                </div>
+                <button
+                  onClick={() => handlePreview(r.title)}
+                  className="btn-ghost whitespace-nowrap"
+                >
+                  Aperçu
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="card space-y-3">
+        <p className="section-title mb-0">
+          2. Vérifier et compléter avant d&apos;enregistrer
+        </p>
+        <form onSubmit={handleSave} className="space-y-3">
+          <div>
+            <label className="label">Nom</label>
+            <input
+              className="input"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              required
+            />
+          </div>
+          <div>
+            <label className="label">Description</label>
+            <textarea
+              className="input"
+              rows={5}
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              placeholder="Laisse vide si tu préfères la rédiger toi-même plus tard"
+            />
+          </div>
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="label">Latitude</label>
+              <input
+                className="input"
+                type="number"
+                step="any"
+                value={form.latitude}
+                onChange={(e) => setForm({ ...form, latitude: e.target.value })}
+                required
+              />
+            </div>
+            <div className="flex-1">
+              <label className="label">Longitude</label>
+              <input
+                className="input"
+                type="number"
+                step="any"
+                value={form.longitude}
+                onChange={(e) => setForm({ ...form, longitude: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+
+          {preview?.thumbnailUrl && (
+            <div className="flex items-center gap-3">
+              <img
+                src={preview.thumbnailUrl}
+                alt=""
+                className="w-16 h-16 object-cover rounded-lg border border-line"
+              />
+              <label className="flex items-center gap-2 text-sm text-ink/70">
+                <input
+                  type="checkbox"
+                  checked={keepThumbnail}
+                  onChange={(e) => setKeepThumbnail(e.target.checked)}
+                />
+                Garder cette photo Wikipédia comme premier média
+              </label>
+            </div>
+          )}
+
+          {form.source_url && (
+            <p className="text-xs text-ink/40">
+              Source : {form.source_url} (affichée dans le feed pour l&apos;attribution)
+            </p>
+          )}
+
+          <button className="btn-primary" disabled={saving}>
+            {saving ? "Enregistrement…" : "Enregistrer le lieu"}
+          </button>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\tourist-places\page.jsx ==========
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { api } from "../../lib/api";
+
+export default function TouristPlacesPage() {
+  const [places, setPlaces] = useState([]);
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const [error, setError] = useState("");
+
+  async function load() {
+    try {
+      setPlaces(await api.get("/tourist-places"));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
+  }, []);
+
+  function startEdit(p) {
+    setEditingId(p.id);
+    setEditForm({
+      name: p.name,
+      description: p.description || "",
+      latitude: p.latitude,
+      longitude: p.longitude,
+    });
+  }
+
+  async function saveEdit(id) {
+    try {
+      await api.put(`/tourist-places/${id}`, {
+        name: editForm.name,
+        description: editForm.description,
+        latitude: Number(editForm.latitude),
+        longitude: Number(editForm.longitude),
+      });
+      setEditingId(null);
+      load();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function handleDelete(id) {
+    if (!confirm("Supprimer ce lieu ?")) return;
+    try {
+      await api.del(`/tourist-places/${id}`);
+      load();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-end flex-wrap gap-3">
+        <div>
+          <p className="section-title">Catalogue</p>
+          <h1 className="page-title">Lieux touristiques</h1>
+        </div>
+        <Link href="/tourist-places/new" className="btn-primary">
+          + Ajouter un lieu
+        </Link>
+      </div>
+
+      {error && <p className="text-red-600 text-sm">{error}</p>}
+
+      <ul className="space-y-2">
+        {places.map((p) => (
+          <li key={p.id} className="card py-3">
+            {editingId === p.id ? (
+              <div className="space-y-3">
+                <div>
+                  <label className="label">Nom</label>
+                  <input
+                    className="input"
+                    value={editForm.name}
+                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="label">Description</label>
+                  <textarea
+                    className="input"
+                    rows={3}
+                    value={editForm.description}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, description: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <input
+                    className="input"
+                    type="number"
+                    step="any"
+                    value={editForm.latitude}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, latitude: e.target.value })
+                    }
+                  />
+                  <input
+                    className="input"
+                    type="number"
+                    step="any"
+                    value={editForm.longitude}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, longitude: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="flex gap-4 items-center">
+                  <button onClick={() => saveEdit(p.id)} className="btn-secondary">
+                    Enregistrer
+                  </button>
+                  <button
+                    onClick={() => setEditingId(null)}
+                    className="text-sm text-ink/50 underline underline-offset-2"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex justify-between items-start gap-3">
+                <div>
+                  <p className="font-medium text-ink text-sm">{p.name}</p>
+                  {p.description && (
+                    <p className="text-xs text-ink/60 mt-1 line-clamp-2">
+                      {p.description}
+                    </p>
+                  )}
+                  <p className="text-xs text-ink/40 mt-1 font-mono">
+                    {p.latitude}, {p.longitude}
+                  </p>
+                </div>
+                <div className="flex gap-4 flex-none">
+                  <button onClick={() => startEdit(p)} className="btn-ghost">
+                    Modifier
+                  </button>
+                  <button onClick={() => handleDelete(p.id)} className="btn-danger-ghost">
+                    Supprimer
+                  </button>
+                </div>
+              </div>
+            )}
+          </li>
+        ))}
+        {places.length === 0 && (
+          <p className="empty-state">Aucun lieu pour l&apos;instant.</p>
+        )}
+      </ul>
+    </div>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\layout.jsx ==========
+import "./globals.css";
+import Nav from "../components/Nav";
+
+export const metadata = {
+  title: "Madagascar Tour — Voyages et circuits à Madagascar",
+};
+
+export const viewport = {
+  themeColor: "#063d2a",
+};
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="fr">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body>
+        <Nav />
+        <main className="max-w-3xl mx-auto p-4 sm:p-6">{children}</main>
+      </body>
+    </html>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\page.jsx ==========
+import Link from "next/link";
+
+export default function Home() {
+  return (
+    <div className="space-y-4">
+      <p className="section-title">Backend Phase 1</p>
+      <h1 className="page-title">Le feed prend forme</h1>
+      <p className="text-sm text-ink/60 max-w-md">
+        Le feed public affiche les lieux touristiques avec leur description
+        et leurs photos. Les pages Circuits, Lieux et Hôtels restent les
+        outils de gestion pour alimenter ce contenu.
+      </p>
+      <div className="flex gap-3 flex-wrap">
+        <Link href="/feed" className="btn-primary inline-block">
+          Voir le feed
+        </Link>
+        <Link href="/tourist-places/new" className="btn-secondary inline-block">
+          Ajouter un lieu
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\components\admin\AdminSidebar.jsx ==========
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+const links = [
+  { label: "Dashboard", href: "/admin" },
+  { label: "Lieux", href: "/admin/places" },
+  { label: "Circuits", href: "/admin/circuits" },
+  { label: "Hôtels", href: "/admin/hotels" },
+  { label: "Commentaires", href: "/admin/comments" },
+];
+
+export default function AdminSidebar() {
+  const pathname = usePathname();
+
+  return (
+    <>
+      {/* Navigation mobile */}
+      <header className="sticky top-0 z-50 border-b bg-white lg:hidden">
+        <div className="px-4 py-3">
+          <h1 className="text-lg font-bold">Madagascar Tour</h1>
+          <p className="text-xs text-gray-500">Administration</p>
+        </div>
+
+        <nav className="flex gap-2 overflow-x-auto border-t px-4 py-2">
+          {links.map((link) => {
+            const active = pathname === link.href;
+
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium ${
+                  active
+                    ? "bg-green-100 text-green-800"
+                    : "text-gray-600"
+                }`}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
+        </nav>
+      </header>
+
+      {/* Navigation desktop */}
+      <aside className="fixed left-0 top-0 hidden h-screen w-64 border-r bg-white p-5 lg:block">
+        <div className="mb-8">
+          <h1 className="text-xl font-bold">Madagascar Tour</h1>
+          <p className="text-sm text-gray-500">Administration</p>
+        </div>
+
+        <nav className="space-y-2">
+          {links.map((link) => {
+            const active = pathname === link.href;
+
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`block rounded-lg px-4 py-3 text-sm font-medium ${
+                  active
+                    ? "bg-green-100 text-green-800"
+                    : "text-gray-600 hover:bg-gray-100"
+                }`}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
+        </nav>
+      </aside>
+    </>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\components\AdminSidebar.jsx ==========
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+const links = [
+  { label: "Dashboard", href: "/admin" },
+  { label: "Lieux touristiques", href: "/admin/places" },
+  { label: "Circuits", href: "/admin/circuits" },
+  { label: "Hôtels", href: "/admin/hotels" },
+  { label: "Commentaires", href: "/admin/comments" },
+];
+
+export default function AdminSidebar() {
+  const pathname = usePathname();
+
+  return (
+    <aside className="fixed left-0 top-0 h-screen w-64 border-r bg-white p-5">
+      <div className="mb-8">
+        <h1 className="text-xl font-bold">Madagascar Tour</h1>
+        <p className="text-sm text-gray-500">Administration</p>
+      </div>
+
+      <nav className="space-y-2">
+        {links.map((link) => {
+          const active = pathname === link.href;
+
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`block rounded-lg px-4 py-3 text-sm font-medium ${
+                active
+                  ? "bg-green-100 text-green-800"
+                  : "text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              {link.label}
+            </Link>
+          );
+        })}
+      </nav>
+    </aside>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\components\Nav.jsx ==========
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+function Icon({ children }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="22"
+      height="22"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+const links = [
+  {
+    href: "/feed",
+    label: "Feed",
+    icon: (
+      <Icon>
+        <rect x="3" y="3" width="7" height="7" rx="1.5" />
+        <rect x="14" y="3" width="7" height="7" rx="1.5" />
+        <rect x="3" y="14" width="7" height="7" rx="1.5" />
+        <rect x="14" y="14" width="7" height="7" rx="1.5" />
+      </Icon>
+    ),
+  },
+  {
+    href: "/circuits",
+    label: "Circuits",
+    icon: (
+      <Icon>
+        <path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z" />
+        <path d="M9 4v14M15 6v14" />
+      </Icon>
+    ),
+  },
+  {
+    href: "/tourist-places",
+    label: "Lieux",
+    icon: (
+      <Icon>
+        <path d="M12 21s-7-6.2-7-11a7 7 0 1 1 14 0c0 4.8-7 11-7 11z" />
+        <circle cx="12" cy="10" r="2.5" />
+      </Icon>
+    ),
+  },
+  {
+    href: "/hotels",
+    label: "Hôtels",
+    icon: (
+      <Icon>
+        <path d="M3 20V8M21 20v-6a3 3 0 0 0-3-3h-7v5M3 16h18" />
+        <circle cx="7" cy="12" r="1.8" />
+      </Icon>
+    ),
+  },
+];
+
+export default function Nav() {
+  const pathname = usePathname();
+
+  // L'admin a sa propre barre latérale : on n'affiche pas la navigation publique
+  if (pathname?.startsWith("/admin")) return null;
+
+  return (
+    <>
+      {/* Barre du haut : marque + liens (liens visibles à partir de la tablette) */}
+      <header className="sticky top-0 z-20 border-b border-white/10 bg-emeraude-950/80 backdrop-blur-xl">
+        <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4">
+          <Link
+            href="/"
+            className="font-serif text-lg font-semibold text-white"
+          >
+            Madagascar <span className="text-or-clair">Tour</span>
+          </Link>
+
+          <nav className="hidden gap-1 sm:flex">
+            {links.map((l) => {
+              const active = pathname?.startsWith(l.href);
+              return (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                    active
+                      ? "bg-or text-emeraude-950"
+                      : "text-white/80 hover:bg-white/10"
+                  }`}
+                >
+                  {l.label}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+      </header>
+
+      {/* Barre du bas : mobile uniquement */}
+      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-emeraude-950/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl sm:hidden">
+        <ul className="grid grid-cols-4">
+          {links.map((l) => {
+            const active = pathname?.startsWith(l.href);
+            return (
+              <li key={l.href}>
+                <Link
+                  href={l.href}
+                  className={`flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors ${
+                    active ? "text-or-clair" : "text-white/70"
+                  }`}
+                >
+                  {l.icon}
+                  {l.label}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+    </>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\components\PageBackground.jsx ==========
+const BACKGROUNDS = {
+  jungle: "/bg/jungle.jpg",
+  feed: "/bg/feed.jpg",
+  circuits: "/bg/circuits.jpg",
+  hotels: "/bg/hotels.jpg",
+  lieux: "/bg/lieux.jpg",
+  login: "/bg/login.jpg",
+};
+
+export default function PageBackground({
+  name = "jungle",
+  position = "center",
+}) {
+  const src = BACKGROUNDS[name] || BACKGROUNDS.jungle;
+
+  return (
+    <div
+      aria-hidden="true"
+      className="bg-jungle-fallback fixed inset-0 -z-10"
+    >
+      <div
+        className="absolute inset-0 bg-cover"
+        style={{
+          backgroundImage: `url(${src})`,
+          backgroundPosition: position,
+        }}
+      />
+      <div className="bg-veil absolute inset-0" />
+    </div>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\lib\api.js ==========
+import { supabase } from "./supabase";
+
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+
+async function request(path, options = {}) {
+  const isFormData = options.body instanceof FormData;
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const headers = new Headers(options.headers || {});
+
+  if (!isFormData) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  if (session?.access_token) {
+    headers.set(
+      "Authorization",
+      `Bearer ${session.access_token}`
+    );
+  }
+
+  const res = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers,
+  });
+
+  if (!res.ok) {
+    let message = `Erreur ${res.status}`;
+
+    try {
+      const data = await res.json();
+      message = data.message || message;
+    } catch {
+      // pas de corps JSON
+    }
+
+    throw new Error(message);
+  }
+
+  if (res.status === 204) return null;
+
+  return res.json();
+}
+
+export const api = {
+  get: (path) => request(path),
+
+  post: (path, body) =>
+    request(path, {
+      method: "POST",
+      body:
+        body instanceof FormData
+          ? body
+          : JSON.stringify(body),
+    }),
+
+  put: (path, body) =>
+    request(path, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+
+  del: (path) =>
+    request(path, {
+      method: "DELETE",
+    }),
+};
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\lib\auth.js ==========
+import { supabase } from "./supabase";
+
+export async function getCurrentUser() {
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error) {
+    return null;
+  }
+
+  return user;
+}
+
+export async function getCurrentRole() {
+  const { data, error } = await supabase.rpc("get_my_role");
+
+  if (error) {
+    console.error(
+      "Erreur récupération rôle :",
+      JSON.stringify(error, null, 2)
+    );
+    return null;
+  }
+
+  return data;
+}
+
+export async function signOut() {
+  await supabase.auth.signOut();
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\lib\supabase.js ==========
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+export const supabase = createClient(
+  supabaseUrl,
+  supabaseAnonKey
+);
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\postcss.config.js ==========
+module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+};
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\tailwind.config.js ==========
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: ["./app/**/*.{js,jsx}", "./components/**/*.{js,jsx}"],
+  theme: {
+    extend: {
+      colors: {
+        ink: "#1B2434",
+        paper: "#FAF6EE",
+        line: "#E7DFCD",
+        terre: { DEFAULT: "#C1602B", dark: "#A34F22" },
+        foret: { DEFAULT: "#5C9575", dark: "#477357" },
+        or: "#E3B23C",
+      },
+      fontFamily: {
+        serif: ["Fraunces", "serif"],
+        sans: ["IBM Plex Sans", "ui-sans-serif", "system-ui"],
+        mono: ["IBM Plex Mono", "ui-monospace", "monospace"],
+      },
+    },
+  },
+  plugins: [],
+};

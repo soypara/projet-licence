@@ -1,0 +1,67 @@
+﻿PACK MADAGASCAR TOUR - v4 : design + mécanisme avis / notes / comptes
+=====================================================================
+
+INSTALLATION
+1. Sauvegarde ton projet (copie le dossier ProjetLicense).
+2. Dézippe, puis glisse les dossiers "backend" et "frontend" sur ton
+   dossier ProjetLicense. Accepte de fusionner et de remplacer.
+3. Redémarre le backend ET le frontend (Ctrl+C puis relance).
+   Aucune installation de paquet n'est nécessaire.
+
+NOUVEAUTES v5
+- Multilingue : Francais / English / Malagasy, selecteur dans la barre du
+  haut (choix memorise dans le navigateur). Toutes les pages publiques,
+  connexion, inscription et avis sont traduits.
+  Fichier des textes : frontend\src\lib\i18n\dictionaries.js
+  (le malagasy est a faire relire par un locuteur natif).
+- Admin, outils retrouves :
+  * /admin/places/list : liste des lieux, modifier, supprimer, photos.
+    Onglets "Importer un lieu" / "Lieux existants" sur les deux pages.
+  * /admin/hotels : bouton Modifier (nom, adresse, lieu associe).
+  * /admin/circuits/[id] : bloc "Photos et videos" (ajout, suppression).
+  * Composant partage : components\admin\MediaManager.jsx. Il envoie
+    le champ "type" exige par le backend (l'ancien envoi circuit ne le
+    faisait pas et etait probablement refuse).
+
+LIMITES v5
+- Le contenu des lieux/circuits et les avis ne sont pas traduits (phase
+  suivante : table ContentTranslation + service de traduction).
+- Les messages d'erreur du backend restent en francais.
+- L'admin reste en francais.
+
+NOUVEAUTES v4
+- Notes : chaque lieu reçoit "rating" (moyenne des avis APPROUVES, une
+  décimale) et "ratings_count". Fichier modifié :
+  backend\src\services\touristPlace.service.ts
+- Inscription : page /register (email + mot de passe) et bouton
+  "Continuer avec Google" sur /login et /register.
+- Avis : page /tourist-places/[id]/comments (liste, moyenne, formulaire
+  étoiles + texte). Même bloc d'avis sous chaque circuit.
+  Un avis est "en attente" jusqu'à validation dans /admin/comments.
+- Feed : badge "Recommandé" (moyenne d'au moins 4/5), nombre d'avis,
+  boutons de tri "Récents" / "Les mieux notés".
+- Barre du haut : Connexion / Déconnexion, et lien Admin pour les admins.
+- Pages /tourist-places/[id] (détail d'un lieu) et /map (carte).
+- admin\places utilise maintenant l'adresse de l'API du fichier .env.local
+  (plus de localhost écrit en dur) : ça marche aussi depuis le téléphone.
+  (frontend\src\lib\api.js : seul changement = "export" devant API_URL.)
+
+A TESTER EN PREMIER (je n'ai pas pu le vérifier sans ta base)
+1. Crée un compte sur /register, puis publie un avis sur un lieu.
+   Si Supabase répond une erreur du type "foreign key" ou "violates ...
+   users", c'est qu'il n'existe pas de ligne dans ta table des utilisateurs
+   pour ce compte : envoie-moi le message exact.
+2. Va dans /admin/comments avec ton compte admin et approuve l'avis.
+3. Recharge le feed : la note et le nombre d'avis doivent apparaître.
+4. La connexion Google ne marchera qu'après avoir activé le fournisseur
+   Google dans Supabase (Authentication > Providers > Google).
+5. Si Supabase demande une confirmation par email, le nouveau compte doit
+   d'abord cliquer le lien reçu.
+
+LIMITES CONNUES (pour la phase de finition)
+- Les avis affichent "date + étoiles + texte" sans nom d'auteur.
+- Sécurité à revoir : policies "Prototype anon", contrôle du rôle côté
+  Express, clés Supabase.
+- A supprimer : components\AdminSidebar.jsx (ancien doublon), pages
+  test-auth et test-auth-backend, dossier pack_madagascar, server0.ts.
+- Photos de fond : voir frontend\public\bg\_PHOTOS_A_AJOUTER.txt

@@ -1,0 +1,7089 @@
+﻿
+========== C:\Users\Paradisa\ProjetLicense\README.md ==========
+# Plateforme touristique Madagascar — Phase 1 corrigée
+
+Projet Next.js + Express + Supabase pour le prototype de la plateforme touristique.
+
+## Corrections principales
+
+- Backend TypeScript compilable avec `npm run typecheck` et `npm run build`.
+- Compatibilité TypeScript avec Express 5 (`req.params` correctement convertis).
+- Réponses JSON de Wikipédia typées pour éviter les erreurs TypeScript 7.
+- Policies Supabase ajoutées pour permettre le CRUD du prototype sans authentification.
+- Policies Storage ajoutées pour le bucket `media`.
+- Configuration Tailwind CSS 4 conservée uniquement à la racine du frontend.
+- Couleurs de thème manquantes (`or`, `foret`) ajoutées.
+- ESLint frontend : 0 erreur. Les avertissements restants concernent les images externes et les polices Google.
+- Aucun fichier `.env` réel n'est inclus dans cette archive corrigée.
+
+## 1. Backend
+
+```powershell
+cd backend
+npm install
+npm run typecheck
+npm run build
+npm run dev
+```
+
+Créer `backend/.env` à partir de `backend/.env.example` :
+
+```env
+SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+SUPABASE_KEY=YOUR_SUPABASE_ANON_KEY
+PORT=5000
+```
+
+## 2. Supabase
+
+Dans le SQL Editor, exécuter dans cet ordre :
+
+1. `backend/sql/phase1_migrations.sql`
+2. `backend/sql/phase1b_migrations.sql`
+
+Puis créer un bucket Storage public nommé **media** si ce n'est pas déjà fait.
+
+> Les policies d'écriture de la Phase 1 sont volontairement ouvertes pour le prototype sans authentification. Elles devront être remplacées par des policies basées sur `auth.uid()` lorsque l'authentification et les rôles seront ajoutés.
+
+## 3. Frontend
+
+```powershell
+cd frontend
+npm install
+npm run lint
+npm run dev
+```
+
+Créer `frontend/.env.local` :
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:5000/api
+```
+
+Puis ouvrir `http://localhost:3000`.
+
+## Fonctionnalités actuellement disponibles
+
+- Feed public des lieux touristiques.
+- Recherche et import assisté depuis Wikipédia.
+- Création/modification/suppression de lieux, hôtels et circuits.
+- Liaison circuits ↔ lieux/hôtels.
+- Upload de médias.
+- Photo Wikipédia enregistrée par URL avec attribution.
+
+========== C:\Users\Paradisa\ProjetLicense\backend\package.json ==========
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.116.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "helmet": "^8.3.0",
+    "multer": "^2.4.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.2.0",
+    "@types/node": "^22.20.3",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2"
+  }
+}
+
+========== C:\Users\Paradisa\ProjetLicense\backend\README.md ==========
+# Phase 1 — Backend structuré (21 → 27 septembre)
+
+Ce dossier contient uniquement les fichiers **nouveaux ou modifiés**. Il ne
+remplace pas ton projet : tu copies `src/` par-dessus ton dossier
+`backend/src/` existant (ça écrasera `server.ts` et `config/supabase.ts`,
+c'est voulu — le reste de `src/` est nouveau).
+
+## 1. Copier les fichiers
+
+Copie tout le contenu de `src/` dans `backend/src/` de ton projet, et
+`sql/phase1_migrations.sql` où tu veux (juste pour référence, il ne
+s'exécute pas depuis VS Code).
+
+## 2. Installer les nouvelles dépendances
+
+Dans `backend/` :
+
+```bash
+npm install zod multer
+npm install -D @types/multer
+```
+
+## 3. Récupérer la clé service_role
+
+Le backend utilise maintenant la clé **service_role**, pas la clé `anon`.
+
+Dans le dashboard Supabase : **Project Settings → API → Project API keys
+→ service_role (secret)**. Copie-la.
+
+Dans `backend/.env`, remplace ou ajoute :
+
+```env
+SUPABASE_URL=https://kwvwzmtwiprvdygcbabz.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=colle_la_clé_service_role_ici
+PORT=5000
+```
+
+⚠️ Cette clé ne doit **jamais** apparaître dans le frontend, ni être commit
+sur GitHub. Vérifie que `.env` est bien dans `.gitignore`.
+
+## 4. Exécuter les migrations SQL
+
+Ouvre le SQL Editor de Supabase, colle le contenu de
+`sql/phase1_migrations.sql`, et exécute-le en une fois. Il :
+- crée les tables `circuit_places` et `circuit_hotels` (liaisons),
+- ajoute `entity_type` / `entity_id` à `media`,
+- pose les policies RLS de lecture publique sur les tables du catalogue.
+
+## 5. Créer le bucket de stockage
+
+Dashboard Supabase → **Storage → New bucket** → nom exact : `media` →
+coche **Public bucket** → Créer.
+
+## 6. Nettoyer les doublons de circuits (si pas encore fait)
+
+Dans le SQL Editor :
+
+```sql
+delete from circuits
+where id not in (
+  select min(id) from circuits group by title, description, price
+);
+```
+
+## 7. Lancer le serveur
+
+```bash
+npm run dev
+```
+
+## 8. Tester avec Postman
+
+| Méthode | Route | Body |
+|---|---|---|
+| GET | `/api/circuits` | — |
+| GET | `/api/circuits/:id` | — |
+| POST | `/api/circuits` | `{ "title": "...", "description": "...", "price": 100000 }` |
+| PUT | `/api/circuits/:id` | un ou plusieurs champs |
+| DELETE | `/api/circuits/:id` | — |
+| POST | `/api/circuits/:id/places/:placeId` | — (lie un lieu à un circuit) |
+| POST | `/api/circuits/:id/hotels/:hotelId` | — (lie un hôtel à un circuit) |
+| GET / POST / PUT / DELETE | `/api/tourist-places[...]` | mêmes principes |
+| GET / POST / PUT / DELETE | `/api/hotels[...]` | mêmes principes |
+| POST | `/api/media` | form-data : `file` (fichier), `entity_type`, `entity_id`, `alt_text` (optionnel) |
+| GET | `/api/media/:entityType/:entityId` | — |
+| DELETE | `/api/media/:id` | — |
+
+Pour `POST /api/media` dans Postman : onglet **Body → form-data**, ajoute
+une clé `file` en type **File**, plus `entity_type` et `entity_id` en
+type Text.
+
+## Ce qui n'est PAS encore fait (normal, c'est la Phase 2)
+
+- Aucune authentification : toutes ces routes sont ouvertes en écriture
+  pour l'instant, car c'est Express (via la clé service_role) qui écrit,
+  pas un utilisateur final. La protection par rôle arrive à la phase
+  suivante.
+
+========== C:\Users\Paradisa\ProjetLicense\backend\tsconfig.json ==========
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "lib": ["ES2022"],
+    "types": ["node", "express", "multer"],
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "sourceMap": true,
+    "declaration": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": false,
+    "isolatedModules": true,
+    "noEmitOnError": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}
+
+========== C:\Users\Paradisa\ProjetLicense\backend\sql\phase1b_migrations.sql ==========
+-- ============================================================
+-- Phase 1b — ajout des colonnes nécessaires au feed
+-- Exécute ce fichier dans Supabase SQL Editor, en une fois.
+-- Ne recrée aucune table, ne supprime rien.
+-- ============================================================
+
+-- description : texte affiché dans le feed (rempli via Wikipédia ou à la main)
+alter table tourist_places add column if not exists description text;
+
+-- source_url : lien vers l'article Wikipédia d'origine, pour l'attribution
+-- (obligatoire pour réutiliser du contenu Wikipédia légalement — licence CC BY-SA)
+alter table tourist_places add column if not exists source_url text;
+
+-- ============================================================
+-- Phase 1b — accès d'écriture pour le prototype sans authentification
+-- ============================================================
+-- Le frontend appelle actuellement l'API Express sans compte utilisateur.
+-- On autorise donc temporairement les opérations CRUD via le rôle anon.
+-- À la Phase 2, ces policies devront être remplacées par des policies
+-- basées sur auth.uid() et les rôles administrateur.
+
+DO $$
+DECLARE
+  t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['tourist_places', 'circuits', 'hotels', 'media', 'circuit_places', 'circuit_hotels']
+  LOOP
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY;', t);
+
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE schemaname = 'public' AND tablename = t AND policyname = 'Prototype anon insert'
+    ) THEN
+      EXECUTE format('CREATE POLICY "Prototype anon insert" ON public.%I FOR INSERT TO anon WITH CHECK (true);', t);
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE schemaname = 'public' AND tablename = t AND policyname = 'Prototype anon update'
+    ) THEN
+      EXECUTE format('CREATE POLICY "Prototype anon update" ON public.%I FOR UPDATE TO anon USING (true) WITH CHECK (true);', t);
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE schemaname = 'public' AND tablename = t AND policyname = 'Prototype anon delete'
+    ) THEN
+      EXECUTE format('CREATE POLICY "Prototype anon delete" ON public.%I FOR DELETE TO anon USING (true);', t);
+    END IF;
+  END LOOP;
+END $$;
+
+-- Supabase Storage : le bucket "media" doit être créé au préalable.
+-- Ces policies permettent au prototype de téléverser/supprimer des fichiers
+-- sans authentification. Elles devront aussi être durcies avec auth.uid()
+-- lorsque l'authentification sera ajoutée.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Prototype anon media select'
+  ) THEN
+    CREATE POLICY "Prototype anon media select"
+      ON storage.objects FOR SELECT TO anon
+      USING (bucket_id = 'media');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Prototype anon media insert'
+  ) THEN
+    CREATE POLICY "Prototype anon media insert"
+      ON storage.objects FOR INSERT TO anon
+      WITH CHECK (bucket_id = 'media');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Prototype anon media update'
+  ) THEN
+    CREATE POLICY "Prototype anon media update"
+      ON storage.objects FOR UPDATE TO anon
+      USING (bucket_id = 'media')
+      WITH CHECK (bucket_id = 'media');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Prototype anon media delete'
+  ) THEN
+    CREATE POLICY "Prototype anon media delete"
+      ON storage.objects FOR DELETE TO anon
+      USING (bucket_id = 'media');
+  END IF;
+END $$;
+
+========== C:\Users\Paradisa\ProjetLicense\backend\sql\phase1_migrations.sql ==========
+-- ============================================================
+-- Phase 1 — migrations à exécuter dans Supabase SQL Editor
+-- Ne recrée aucune des 12 tables existantes, ne supprime rien.
+-- Exécute ce fichier de haut en bas, en une fois.
+-- ============================================================
+
+-- 1. Table de jonction Circuit <-> TouristPlace
+--    (la relation "contient" du diagramme n'était portée par aucune
+--    des 12 tables ; ceci est la réalisation technique de cette relation,
+--    pas une nouvelle classe UML)
+create table if not exists circuit_places (
+  circuit_id uuid not null references circuits(id) on delete cascade,
+  tourist_place_id uuid not null references tourist_places(id) on delete restrict,
+  primary key (circuit_id, tourist_place_id)
+);
+
+-- 2. Table de jonction Circuit <-> Hotel
+create table if not exists circuit_hotels (
+  circuit_id uuid not null references circuits(id) on delete cascade,
+  hotel_id uuid not null references hotels(id) on delete restrict,
+  primary key (circuit_id, hotel_id)
+);
+
+-- 3. Colonnes manquantes sur media pour la relation polymorphe
+--    (nécessaires pour savoir à quoi un média est rattaché)
+alter table media add column if not exists entity_type text;
+alter table media add column if not exists entity_id uuid;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'media_entity_type_check'
+  ) then
+    alter table media add constraint media_entity_type_check
+      check (entity_type in ('circuit', 'tourist_place', 'hotel'));
+  end if;
+end $$;
+
+-- 4. Activer le RLS sur les deux nouvelles tables
+alter table circuit_places enable row level security;
+alter table circuit_hotels enable row level security;
+
+-- 5. Policies de lecture publique — le feed doit être consultable
+--    sans authentification, y compris ces relations.
+--    PostgreSQL ne supporte pas "CREATE POLICY IF NOT EXISTS", donc on
+--    vérifie manuellement (utile car "circuits" a déjà sa policy).
+do $$
+declare
+  t record;
+begin
+  for t in
+    select * from (values
+      ('circuits', 'Public can read circuits'),
+      ('tourist_places', 'Public can read tourist_places'),
+      ('hotels', 'Public can read hotels'),
+      ('media', 'Public can read media'),
+      ('circuit_places', 'Public can read circuit_places'),
+      ('circuit_hotels', 'Public can read circuit_hotels'),
+      ('languages', 'Public can read languages'),
+      ('content_translations', 'Public can read content_translations')
+    ) as x(tablename, policyname)
+  loop
+    if not exists (
+      select 1 from pg_policies
+      where schemaname = 'public' and tablename = t.tablename and policyname = t.policyname
+    ) then
+      execute format(
+        'create policy %I on %I for select using (true);',
+        t.policyname, t.tablename
+      );
+    end if;
+  end loop;
+end $$;
+
+-- 6. Les policies d'écriture du prototype sans authentification sont ajoutées
+--    dans phase1b_migrations.sql. Elles sont volontairement temporaires et
+--    devront être remplacées par des policies basées sur auth.uid() en Phase 2.
+
+-- Vérification finale (optionnelle) :
+-- select tablename, policyname from pg_policies where schemaname = 'public';
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\server.ts ==========
+import dotenv from "dotenv";
+
+dotenv.config();
+
+import express from "express";
+import cors from "cors";
+import helmet from "helmet";
+
+import apiRoutes from "./routes";
+import { errorHandler } from "./middlewares/errorHandler";
+
+// import { supabase } from "./config/supabase";
+// ↑ Vient du code 1.
+// La connexion Supabase est maintenant utilisée dans les routes,
+// donc cet import n'est plus nécessaire directement dans server.ts.
+// On le conserve ici en commentaire pour garder la trace de l'ancien fonctionnement.
+
+const app = express();
+
+const PORT = process.env.PORT || 5000;
+
+app.use(cors({
+    origin: ["http://localhost:3000", "http://192.168.1.126:3000"],
+  }));
+
+app.use(helmet());
+
+app.use(express.json());
+
+
+// ============================================================
+// ROUTE PRINCIPALE
+// ============================================================
+
+app.get("/", (_req, res) => {
+  res.json({
+    message: "Mandeha lessy ahhh 🇲🇬",
+  });
+});
+
+
+// ============================================================
+// ROUTES API
+// ============================================================
+
+app.use("/api", apiRoutes);
+
+
+// ============================================================
+// ANCIENNE ROUTE /api/circuits — CODE 1
+// ============================================================
+
+// Cette route était directement définie dans server.ts dans le code 1.
+// Dans le code 2, elle a été déléguée à ./routes.
+// On la conserve donc en commentaire pour ne pas perdre l'ancien code.
+
+// app.get("/api/circuits", async (_req, res) => {
+//   const { data, error } = await supabase
+//     .from("circuits")
+//     .select("*");
+
+//   console.log("DATA :", data);
+//   console.log("ERROR :", error);
+
+//   if (error) {
+//     return res.status(500).json({
+//       message: "Erreur lors de la récupération des circuits",
+//       error: error.message,
+//     });
+//   }
+
+//   res.json(data);
+// });
+
+
+// ============================================================
+// GESTION GLOBALE DES ERREURS
+// ============================================================
+
+// Toujours en dernier : capte les erreurs de toutes les routes ci-dessus
+
+app.use(errorHandler);
+
+
+// ============================================================
+// DÉMARRAGE DU SERVEUR
+// ============================================================
+
+app.listen(PORT, () => {
+  console.log(`Backend lancé sur http://localhost:${PORT}`);
+});
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\server0.ts ==========
+import dotenv from "dotenv";
+
+dotenv.config();
+
+import express from "express";
+import cors from "cors";
+import helmet from "helmet";
+import { supabase } from "./config/supabase";
+//console.log("Supabase URL :", process.env.SUPABASE_URL); // test hijerevana hoe miconnect ve ny supabase
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+app.use(cors());
+app.use(helmet());
+app.use(express.json());
+
+app.get("/", (_req, res) => {
+  res.json({
+    message: "API touristique Madagascar opérationnelle 🇲🇬",
+  });
+});
+
+app.get("/api/circuits", async (_req, res) => {
+  const { data, error } = await supabase
+    .from("circuits")
+    .select("*");
+
+  console.log("DATA :", data);
+  console.log("ERROR :", error);
+
+  if (error) {
+    return res.status(500).json({
+      message: "Erreur lors de la récupération des circuits",
+      error: error.message,
+    });
+  }
+
+  res.json(data);
+});
+
+app.listen(PORT, () => {
+  console.log(`Backend lancé sur http://localhost:${PORT}`);
+});
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\config\supabase.ts ==========
+import { createClient } from "@supabase/supabase-js";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error("Les variables Supabase sont manquantes.");
+}
+
+export const supabase = createClient(supabaseUrl, supabaseKey);
+
+console.log("Supabase URL :", supabaseUrl);
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\config\supabaseAuth.ts ==========
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error("Les variables Supabase sont manquantes.");
+}
+
+export function createAuthenticatedSupabase(token: string) {
+  return createClient(supabaseUrl!, supabaseKey!, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  });
+}
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\controllers\circuit.controller.ts ==========
+import { Request, Response } from "express";
+import * as circuitService from "../services/circuit.service";
+import { createAuthenticatedSupabase } from "../config/supabaseAuth";
+
+function getAuthenticatedClient(req: Request) {
+  const authorization = req.headers.authorization;
+
+  if (!authorization?.startsWith("Bearer ")) {
+    throw new Error("Token d'authentification manquant.");
+  }
+
+  const token = authorization.replace("Bearer ", "");
+
+  return createAuthenticatedSupabase(token);
+}
+
+export async function getAll(_req: Request, res: Response) {
+  const circuits = await circuitService.listCircuits();
+  res.json(circuits);
+}
+
+export async function getOne(req: Request, res: Response) {
+  const circuit = await circuitService.getCircuitById(
+    String(req.params.id)
+  );
+
+  res.json(circuit);
+}
+
+export async function create(req: Request, res: Response) {
+  const client = getAuthenticatedClient(req);
+
+  const circuit = await circuitService.createCircuit(
+    client,
+    req.body
+  );
+
+  res.status(201).json(circuit);
+}
+
+export async function update(req: Request, res: Response) {
+  const client = getAuthenticatedClient(req);
+
+  const circuit = await circuitService.updateCircuit(
+    client,
+    String(req.params.id),
+    req.body
+  );
+
+  res.json(circuit);
+}
+
+export async function remove(req: Request, res: Response) {
+  const client = getAuthenticatedClient(req);
+
+  await circuitService.deleteCircuit(
+    client,
+    String(req.params.id)
+  );
+
+  res.status(204).send();
+}
+
+export async function linkTouristPlace(
+  req: Request,
+  res: Response
+) {
+  const client = getAuthenticatedClient(req);
+
+  await circuitService.attachTouristPlace(
+    client,
+    String(req.params.id),
+    String(req.params.placeId)
+  );
+
+  res.status(201).json({
+    message: "Lieu ajouté au circuit.",
+  });
+}
+
+export async function unlinkTouristPlace(
+  req: Request,
+  res: Response
+) {
+  const client = getAuthenticatedClient(req);
+
+  await circuitService.detachTouristPlace(
+    client,
+    String(req.params.id),
+    String(req.params.placeId)
+  );
+
+  res.status(204).send();
+}
+
+export async function linkHotel(
+  req: Request,
+  res: Response
+) {
+  const client = getAuthenticatedClient(req);
+
+  await circuitService.attachHotel(
+    client,
+    String(req.params.id),
+    String(req.params.hotelId)
+  );
+
+  res.status(201).json({
+    message: "Hôtel ajouté au circuit.",
+  });
+}
+
+export async function unlinkHotel(
+  req: Request,
+  res: Response
+) {
+  const client = getAuthenticatedClient(req);
+
+  await circuitService.detachHotel(
+    client,
+    String(req.params.id),
+    String(req.params.hotelId)
+  );
+
+  res.status(204).send();
+}
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\controllers\comment.controller.ts ==========
+import { Request, Response } from "express";
+import { createAuthenticatedSupabase } from "../config/supabaseAuth";
+import * as commentService from "../services/comment.service";
+import { AppError } from "../middlewares/errorHandler";
+
+function getToken(req: Request) {
+  const authorization = req.headers.authorization;
+
+  if (!authorization?.startsWith("Bearer ")) {
+    throw new AppError(
+      "Token d'authentification manquant.",
+      401
+    );
+  }
+
+  return authorization.replace("Bearer ", "");
+}
+
+export async function getAll(req: Request, res: Response) {
+  const touristPlaceId = req.query.tourist_place_id
+    ? String(req.query.tourist_place_id)
+    : undefined;
+
+  const circuitId = req.query.circuit_id
+    ? String(req.query.circuit_id)
+    : undefined;
+
+  const comments =
+    await commentService.listApprovedComments(
+      touristPlaceId,
+      circuitId
+    );
+
+  res.json(comments);
+}
+
+// MODIFIÉ : utilise le client authentifié pour que la RLS
+// (policy admin) laisse voir TOUS les commentaires, pas seulement les approuvés.
+export async function getAdminAll(
+  req: Request,
+  res: Response
+) {
+  const client = createAuthenticatedSupabase(
+    getToken(req)
+  );
+
+  const comments = await commentService.listComments(client);
+  res.json(comments);
+}
+
+export async function create(
+  req: Request,
+  res: Response
+) {
+  if (!req.user?.id) {
+    throw new AppError("Utilisateur non authentifié.", 401);
+  }
+
+  const client = createAuthenticatedSupabase(
+    getToken(req)
+  );
+
+  const comment = await commentService.createComment(
+    client,
+    req.user.id,
+    req.body
+  );
+
+  res.status(201).json(comment);
+}
+
+export async function update(
+  req: Request,
+  res: Response
+) {
+  const client = createAuthenticatedSupabase(
+    getToken(req)
+  );
+
+  const comment = await commentService.updateComment(
+    client,
+    String(req.params.id),
+    req.body
+  );
+
+  res.json(comment);
+}
+
+export async function updateStatus(
+  req: Request,
+  res: Response
+) {
+  const client = createAuthenticatedSupabase(
+    getToken(req)
+  );
+
+  const comment =
+    await commentService.updateCommentStatus(
+      client,
+      String(req.params.id),
+      req.body.status
+    );
+
+  res.json(comment);
+}
+
+export async function remove(
+  req: Request,
+  res: Response
+) {
+  const client = createAuthenticatedSupabase(
+    getToken(req)
+  );
+
+  await commentService.deleteComment(
+    client,
+    String(req.params.id)
+  );
+
+  res.status(204).send();
+}
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\controllers\hotel.controller.ts ==========
+import { Request, Response } from "express";
+import * as hotelService from "../services/hotel.service";
+import { createAuthenticatedSupabase } from "../config/supabaseAuth";
+
+function getAuthenticatedClient(req: Request) {
+  const authorization = req.headers.authorization;
+
+  if (!authorization?.startsWith("Bearer ")) {
+    throw new Error("Token d'authentification manquant.");
+  }
+
+  const token = authorization.replace("Bearer ", "");
+
+  return createAuthenticatedSupabase(token);
+}
+
+export async function getAll(_req: Request, res: Response) {
+  const hotels = await hotelService.listHotels();
+  res.json(hotels);
+}
+
+export async function getOne(req: Request, res: Response) {
+  const hotel = await hotelService.getHotelById(
+    String(req.params.id)
+  );
+
+  res.json(hotel);
+}
+
+export async function create(req: Request, res: Response) {
+  const client = getAuthenticatedClient(req);
+
+  const hotel = await hotelService.createHotel(
+    client,
+    req.body
+  );
+
+  res.status(201).json(hotel);
+}
+
+export async function update(req: Request, res: Response) {
+  const client = getAuthenticatedClient(req);
+
+  const hotel = await hotelService.updateHotel(
+    client,
+    String(req.params.id),
+    req.body
+  );
+
+  res.json(hotel);
+}
+
+export async function remove(req: Request, res: Response) {
+  const client = getAuthenticatedClient(req);
+
+  await hotelService.deleteHotel(
+    client,
+    String(req.params.id)
+  );
+
+  res.status(204).send();
+}
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\controllers\media.controller.ts ==========
+import { Request, Response } from "express";
+import {
+  mediaUploadSchema,
+  mediaFromUrlSchema,
+} from "../schemas/media.schema";
+import { AppError } from "../middlewares/errorHandler";
+import { createAuthenticatedSupabase } from "../config/supabaseAuth";
+import * as mediaService from "../services/media.service";
+
+function getToken(req: Request) {
+  const authorization = req.headers.authorization;
+
+  if (!authorization?.startsWith("Bearer ")) {
+    throw new AppError(
+      "Token d'authentification manquant.",
+      401
+    );
+  }
+
+  return authorization.replace("Bearer ", "");
+}
+
+export async function upload(
+  req: Request,
+  res: Response
+) {
+  if (!req.file) {
+    throw new AppError(
+      "Aucun fichier reçu.",
+      422
+    );
+  }
+
+  const parsed =
+    mediaUploadSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    const message =
+      parsed.error.issues
+        .map((issue) => issue.message)
+        .join(" | ");
+
+    throw new AppError(
+      `Données invalides — ${message}`,
+      422
+    );
+  }
+
+  const media =
+    await mediaService.uploadMedia(
+      req.file,
+      parsed.data,
+      getToken(req)
+    );
+
+  res.status(201).json(media);
+}
+
+export async function fromUrl(
+  req: Request,
+  res: Response
+) {
+  const parsed =
+    mediaFromUrlSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    throw new AppError(
+      "Données média invalides.",
+      422
+    );
+  }
+
+  const client =
+    createAuthenticatedSupabase(
+      getToken(req)
+    );
+
+  const media =
+    await mediaService.saveMediaFromUrl(
+      client,
+      parsed.data
+    );
+
+  res.status(201).json(media);
+}
+
+export async function listForEntity(
+  req: Request,
+  res: Response
+) {
+  const media =
+    await mediaService.listMediaFor(
+      String(req.params.entityType),
+      String(req.params.entityId)
+    );
+
+  res.json(media);
+}
+
+export async function remove(
+  req: Request,
+  res: Response
+) {
+  const client =
+    createAuthenticatedSupabase(
+      getToken(req)
+    );
+
+  await mediaService.deleteMedia(
+    client,
+    String(req.params.id)
+  );
+
+  res.status(204).send();
+}
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\controllers\placeImport.controller.ts ==========
+import { Request, Response } from "express";
+import { placeImportSchema } from "../schemas/placeImport.schema";
+import { importTouristPlace } from "../services/placeImport.service";
+
+export async function importPlace(req: Request, res: Response) {
+  const input = placeImportSchema.parse(req.body);
+
+  const authorization = req.headers.authorization;
+  const token = authorization?.replace("Bearer ", "");
+
+  if (!token) {
+    throw new Error("Token d'authentification manquant.");
+  }
+
+  const place = await importTouristPlace(input, token);
+
+  res.status(201).json(place);
+}
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\controllers\placeSearch.controller.ts ==========
+import { Request, Response } from "express";
+import { AppError } from "../middlewares/errorHandler";
+import { searchPlace } from "../services/placeSearch.service";
+
+export async function search(req: Request, res: Response) {
+  const query = String(req.query.q || "").trim();
+
+  if (!query) {
+    throw new AppError("Le paramètre de recherche est requis.", 400);
+  }
+
+  const result = await searchPlace(query);
+
+  res.json(result);
+}
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\controllers\touristPlace.controller.ts ==========
+import { Request, Response } from "express";
+import { createAuthenticatedSupabase } from "../config/supabaseAuth";
+import * as touristPlaceService from "../services/touristPlace.service";
+import { AppError } from "../middlewares/errorHandler";
+
+function getClient(req: Request) {
+  const authorization = req.headers.authorization;
+
+  if (!authorization?.startsWith("Bearer ")) {
+    throw new AppError(
+      "Token d'authentification manquant.",
+      401
+    );
+  }
+
+  return createAuthenticatedSupabase(
+    authorization.replace("Bearer ", "")
+  );
+}
+
+export async function getAll(
+  _req: Request,
+  res: Response
+) {
+  const places =
+    await touristPlaceService.listTouristPlaces();
+
+  res.json(places);
+}
+
+export async function getOne(
+  req: Request,
+  res: Response
+) {
+  const place =
+    await touristPlaceService.getTouristPlaceById(
+      String(req.params.id)
+    );
+
+  res.json(place);
+}
+
+export async function create(
+  req: Request,
+  res: Response
+) {
+  const place =
+    await touristPlaceService.createTouristPlace(
+      getClient(req),
+      req.body
+    );
+
+  res.status(201).json(place);
+}
+
+export async function update(
+  req: Request,
+  res: Response
+) {
+  const place =
+    await touristPlaceService.updateTouristPlace(
+      getClient(req),
+      String(req.params.id),
+      req.body
+    );
+
+  res.json(place);
+}
+
+export async function remove(
+  req: Request,
+  res: Response
+) {
+  await touristPlaceService.deleteTouristPlace(
+    getClient(req),
+    String(req.params.id)
+  );
+
+  res.status(204).send();
+}
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\controllers\wikipedia.controller.ts ==========
+import { Request, Response } from "express";
+import * as wikipediaService from "../services/wikipedia.service";
+import { AppError } from "../middlewares/errorHandler";
+
+export async function search(req: Request, res: Response) {
+  const q = String(req.query.q || "").trim();
+  if (!q) throw new AppError("Le paramètre q est requis.", 422);
+
+  const results = await wikipediaService.searchWikipedia(q);
+  res.json(results);
+}
+
+export async function summary(req: Request, res: Response) {
+  const title = String(req.query.title || "").trim();
+  if (!title) throw new AppError("Le paramètre title est requis.", 422);
+
+  const data = await wikipediaService.getWikipediaSummary(title);
+  res.json(data);
+}
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\middlewares\auth.middleware.ts ==========
+import { Request, Response, NextFunction } from "express";
+import { supabase } from "../config/supabase";
+
+export async function authenticate(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const authorization = req.headers.authorization;
+
+    if (!authorization?.startsWith("Bearer ")) {
+      return res.status(401).json({
+        message: "Token d'authentification manquant.",
+      });
+    }
+
+    const token = authorization.replace("Bearer ", "");
+
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser(token);
+
+    if (error || !user) {
+      return res.status(401).json({
+        message: "Token d'authentification invalide.",
+      });
+    }
+
+    req.user = user;
+
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\middlewares\errorHandler.ts ==========
+import { Request, Response, NextFunction } from "express";
+
+export class AppError extends Error {
+  statusCode: number;
+
+  constructor(message: string, statusCode = 400) {
+    super(message);
+    this.statusCode = statusCode;
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function errorHandler(
+  err: unknown,
+  _req: Request,
+  res: Response,
+  _next: NextFunction
+) {
+  if (err instanceof AppError) {
+    return res.status(err.statusCode).json({ message: err.message });
+  }
+
+  console.error("Erreur inattendue :", err);
+  return res.status(500).json({ message: "Erreur interne du serveur." });
+}
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\middlewares\validate.ts ==========
+import { Request, Response, NextFunction } from "express";
+import { ZodSchema } from "zod";
+import { AppError } from "./errorHandler";
+
+export function validateBody(schema: ZodSchema) {
+  return (req: Request, _res: Response, next: NextFunction) => {
+    const result = schema.safeParse(req.body);
+
+    if (!result.success) {
+      const message = result.error.issues
+        .map((issue) => `${issue.path.join(".")} : ${issue.message}`)
+        .join(" | ");
+      return next(new AppError(`Données invalides — ${message}`, 422));
+    }
+
+    req.body = result.data;
+    next();
+  };
+}
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\routes\circuit.routes.ts ==========
+import { Router } from "express";
+import { asyncHandler } from "../utils/asyncHandler";
+import { authenticate } from "../middlewares/auth.middleware";
+import { validateBody } from "../middlewares/validate";
+
+import {
+  circuitSchema,
+  circuitUpdateSchema,
+} from "../schemas/circuit.schema";
+
+import * as circuitController from "../controllers/circuit.controller";
+
+const router = Router();
+
+router.get(
+  "/",
+  asyncHandler(circuitController.getAll)
+);
+
+router.get(
+  "/:id",
+  asyncHandler(circuitController.getOne)
+);
+
+router.post(
+  "/",
+  authenticate,
+  validateBody(circuitSchema),
+  asyncHandler(circuitController.create)
+);
+
+router.put(
+  "/:id",
+  authenticate,
+  validateBody(circuitUpdateSchema),
+  asyncHandler(circuitController.update)
+);
+
+router.delete(
+  "/:id",
+  authenticate,
+  asyncHandler(circuitController.remove)
+);
+
+router.post(
+  "/:id/places/:placeId",
+  authenticate,
+  asyncHandler(circuitController.linkTouristPlace)
+);
+
+router.delete(
+  "/:id/places/:placeId",
+  authenticate,
+  asyncHandler(circuitController.unlinkTouristPlace)
+);
+
+router.post(
+  "/:id/hotels/:hotelId",
+  authenticate,
+  asyncHandler(circuitController.linkHotel)
+);
+
+router.delete(
+  "/:id/hotels/:hotelId",
+  authenticate,
+  asyncHandler(circuitController.unlinkHotel)
+);
+
+export default router;
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\routes\comment.routes.ts ==========
+import { Router } from "express";
+import { asyncHandler } from "../utils/asyncHandler";
+import { authenticate } from "../middlewares/auth.middleware";
+import { validateBody } from "../middlewares/validate";
+
+import {
+  commentSchema,
+  commentStatusSchema,
+} from "../schemas/comment.schema";
+
+import * as commentController from "../controllers/comment.controller";
+
+const router = Router();
+
+/*
+ * Public : uniquement commentaires approuvés
+ */
+router.get(
+  "/",
+  asyncHandler(commentController.getAll)
+);
+
+/*
+ * Création par utilisateur connecté
+ */
+router.post(
+  "/",
+  authenticate,
+  validateBody(commentSchema),
+  asyncHandler(commentController.create)
+);
+
+/*
+ * Administration
+ */
+router.get(
+  "/admin",
+  authenticate,
+  asyncHandler(commentController.getAdminAll)
+);
+
+// MODIFIÉ : PUT au lieu de PATCH (cohérent avec api.put du frontend)
+router.put(
+  "/:id/status",
+  authenticate,
+  validateBody(commentStatusSchema),
+  asyncHandler(commentController.updateStatus)
+);
+
+router.delete(
+  "/:id",
+  authenticate,
+  asyncHandler(commentController.remove)
+);
+
+export default router;
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\routes\hotel.routes.ts ==========
+import { Router } from "express";
+import { asyncHandler } from "../utils/asyncHandler";
+import { authenticate } from "../middlewares/auth.middleware";
+import { validateBody } from "../middlewares/validate";
+import {
+  hotelSchema,
+  hotelUpdateSchema,
+} from "../schemas/hotel.schema";
+import * as hotelController from "../controllers/hotel.controller";
+
+const router = Router();
+
+router.get("/", asyncHandler(hotelController.getAll));
+
+router.get("/:id", asyncHandler(hotelController.getOne));
+
+router.post(
+  "/",
+  authenticate,
+  validateBody(hotelSchema),
+  asyncHandler(hotelController.create)
+);
+
+router.put(
+  "/:id",
+  authenticate,
+  validateBody(hotelUpdateSchema),
+  asyncHandler(hotelController.update)
+);
+
+router.delete(
+  "/:id",
+  authenticate,
+  asyncHandler(hotelController.remove)
+);
+
+export default router;
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\routes\index.ts ==========
+import { Router } from "express";
+
+import circuitRoutes from "./circuit.routes";
+import touristPlaceRoutes from "./touristPlace.routes";
+import hotelRoutes from "./hotel.routes";
+import mediaRoutes from "./media.routes";
+import wikipediaRoutes from "./wikipedia.routes";
+import placeSearchRoutes from "./placeSearch.routes";
+import commentRoutes from "./comment.routes";
+
+const router = Router();
+
+router.use("/circuits", circuitRoutes);
+router.use("/tourist-places", touristPlaceRoutes);
+router.use("/hotels", hotelRoutes);
+router.use("/media", mediaRoutes);
+router.use("/wikipedia", wikipediaRoutes);
+router.use("/place-search", placeSearchRoutes);
+router.use("/comments", commentRoutes);
+
+export default router;
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\routes\media.routes.ts ==========
+import { Router } from "express";
+import multer from "multer";
+
+import { asyncHandler } from "../utils/asyncHandler";
+import { authenticate } from "../middlewares/auth.middleware";
+import { validateBody } from "../middlewares/validate";
+
+import {
+  mediaFromUrlSchema,
+} from "../schemas/media.schema";
+
+import * as mediaController from "../controllers/media.controller";
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 8 * 1024 * 1024,
+  },
+});
+
+const router = Router();
+
+router.post(
+  "/",
+  authenticate,
+  upload.single("file"),
+  asyncHandler(mediaController.upload)
+);
+
+router.post(
+  "/from-url",
+  authenticate,
+  validateBody(mediaFromUrlSchema),
+  asyncHandler(mediaController.fromUrl)
+);
+
+router.get(
+  "/:entityType/:entityId",
+  asyncHandler(mediaController.listForEntity)
+);
+
+router.delete(
+  "/:id",
+  authenticate,
+  asyncHandler(mediaController.remove)
+);
+
+export default router;
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\routes\placeSearch.routes.ts ==========
+import { Router } from "express";
+import { asyncHandler } from "../utils/asyncHandler";
+import * as placeSearchController from "../controllers/placeSearch.controller";
+import * as placeImportController from "../controllers/placeImport.controller";
+import { authenticate } from "../middlewares/auth.middleware";
+
+const router = Router();
+
+// GET /api/place-search/search?q=Allée%20des%20Baobabs
+router.get("/search", asyncHandler(placeSearchController.search));
+
+// POST /api/place-search/import
+router.post(
+  "/import",
+  authenticate,
+  asyncHandler(placeImportController.importPlace)
+);
+
+router.get("/auth-test", authenticate, (req, res) => {
+  res.json({
+    authenticated: true,
+    userId: req.user?.id,
+    email: req.user?.email,
+  });
+});
+
+export default router;
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\routes\touristPlace.routes.ts ==========
+import { Router } from "express";
+import { asyncHandler } from "../utils/asyncHandler";
+import { authenticate } from "../middlewares/auth.middleware";
+import { validateBody } from "../middlewares/validate";
+
+import {
+  touristPlaceSchema,
+  touristPlaceUpdateSchema,
+} from "../schemas/touristPlace.schema";
+
+import * as touristPlaceController from "../controllers/touristPlace.controller";
+
+const router = Router();
+
+router.get(
+  "/",
+  asyncHandler(touristPlaceController.getAll)
+);
+
+router.get(
+  "/:id",
+  asyncHandler(touristPlaceController.getOne)
+);
+
+router.post(
+  "/",
+  authenticate,
+  validateBody(touristPlaceSchema),
+  asyncHandler(touristPlaceController.create)
+);
+
+router.put(
+  "/:id",
+  authenticate,
+  validateBody(touristPlaceUpdateSchema),
+  asyncHandler(touristPlaceController.update)
+);
+
+router.delete(
+  "/:id",
+  authenticate,
+  asyncHandler(touristPlaceController.remove)
+);
+
+export default router;
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\routes\wikipedia.routes.ts ==========
+import { Router } from "express";
+import { asyncHandler } from "../utils/asyncHandler";
+import * as wikipediaController from "../controllers/wikipedia.controller";
+
+const router = Router();
+
+// GET /api/wikipedia/search?q=Isalo
+router.get("/search", asyncHandler(wikipediaController.search));
+
+// GET /api/wikipedia/summary?title=Parc%20national%20de%20l%27Isalo
+router.get("/summary", asyncHandler(wikipediaController.summary));
+
+export default router;
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\schemas\circuit.schema.ts ==========
+import { z } from "zod";
+
+export const circuitSchema = z.object({
+  title: z
+    .string()
+    .min(
+      3,
+      "Le titre doit contenir au moins 3 caractères."
+    ),
+
+  description: z
+    .string()
+    .min(
+      10,
+      "La description doit contenir au moins 10 caractères."
+    ),
+
+  price: z
+    .number()
+    .nonnegative(
+      "Le prix ne peut pas être négatif."
+    ),
+
+  tourist_place_id: z
+    .string()
+    .uuid()
+    .optional(),
+});
+
+export const circuitUpdateSchema =
+  circuitSchema.partial();
+
+export type CircuitInput =
+  z.infer<typeof circuitSchema>;
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\schemas\comment.schema.ts ==========
+import { z } from "zod";
+
+export const commentSchema = z.object({
+  content: z
+    .string()
+    .min(2, "Le commentaire doit contenir au moins 2 caractères.")
+    .max(1000, "Le commentaire est trop long."),
+
+  rating: z
+    .number()
+    .int()
+    .min(1, "La note minimale est 1.")
+    .max(5, "La note maximale est 5."),
+
+  tourist_place_id: z
+    .string()
+    .uuid()
+    .optional(),
+
+  circuit_id: z
+    .string()
+    .uuid()
+    .optional(),
+}).refine(
+  (data) =>
+    Boolean(data.tourist_place_id) !== Boolean(data.circuit_id),
+  {
+    message:
+      "Un commentaire doit être associé à un lieu ou à un circuit.",
+  }
+);
+
+export const commentUpdateSchema = z.object({
+  content: z
+    .string()
+    .min(2)
+    .max(1000)
+    .optional(),
+
+  rating: z
+    .number()
+    .int()
+    .min(1)
+    .max(5)
+    .optional(),
+
+  status: z
+    .enum(["pending", "approved", "rejected"])
+    .optional(),
+});
+
+export const commentStatusSchema = z.object({
+  status: z.enum(["pending", "approved", "rejected"]),
+});
+
+export type CommentInput = z.infer<typeof commentSchema>;
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\schemas\hotel.schema.ts ==========
+import { z } from "zod";
+
+export const hotelSchema = z.object({
+  name: z
+    .string()
+    .min(
+      2,
+      "Le nom doit contenir au moins 2 caractères."
+    ),
+
+  address: z
+    .string()
+    .min(
+      3,
+      "L'adresse doit contenir au moins 3 caractères."
+    ),
+
+  tourist_place_id: z
+    .string()
+    .uuid()
+    .optional(),
+});
+
+export const hotelUpdateSchema =
+  hotelSchema.partial();
+
+export type HotelInput =
+  z.infer<typeof hotelSchema>;
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\schemas\media.schema.ts ==========
+import { z } from "zod";
+
+const mediaBaseSchema = z.object({
+  type: z.string().min(1),
+  alt_text: z.string().optional().default(""),
+  entity_type: z.enum(["tourist_place", "circuit", "hotel"]),
+  entity_id: z.string().uuid(),
+  caption: z.string().optional().default(""),
+  sort_order: z.coerce.number().int().positive().default(1),
+});
+
+export const mediaUploadSchema = mediaBaseSchema;
+
+export const mediaFromUrlSchema = mediaBaseSchema.extend({
+  url: z.string().url(),
+});
+
+export type MediaUploadInput = z.infer<typeof mediaUploadSchema>;
+export type MediaFromUrlInput = z.infer<typeof mediaFromUrlSchema>;
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\schemas\placeImport.schema.ts ==========
+import { z } from "zod";
+
+const placeImportMediaSchema = z.object({
+  url: z.string().url(),
+  caption: z.string().min(1),
+  sort_order: z.number().int().positive(),
+  type: z.string().default("photo"),
+  alt_text: z.string().optional().default(""),
+});
+
+export const placeImportSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional().default(""),
+  latitude: z.number(),
+  longitude: z.number(),
+  source_url: z.string().url().optional().or(z.literal("")),
+  media: z.array(placeImportMediaSchema).optional().default([]),
+});
+
+export type PlaceImportInput = z.infer<typeof placeImportSchema>;
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\schemas\touristPlace.schema.ts ==========
+import { z } from "zod";
+
+export const touristPlaceSchema = z.object({
+  name: z.string().min(2, "Le nom doit contenir au moins 2 caractères."),
+  description: z.string().optional().default(""),
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+  // Lien vers l'article Wikipédia d'origine, pour l'attribution dans le feed.
+  // Vide si le lieu a été créé entièrement à la main.
+  source_url: z
+    .string()
+    .url("URL invalide.")
+    .optional()
+    .or(z.literal("")),
+});
+
+export const touristPlaceUpdateSchema = touristPlaceSchema.partial();
+
+export type TouristPlaceInput = z.infer<typeof touristPlaceSchema>;
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\services\circuit.service.ts ==========
+import { SupabaseClient } from "@supabase/supabase-js";
+import { supabase } from "../config/supabase";
+import { AppError } from "../middlewares/errorHandler";
+import { CircuitInput } from "../schemas/circuit.schema";
+
+export async function listCircuits() {
+  const { data, error } = await supabase
+    .from("circuits")
+    .select(`
+      *,
+      tourist_places (
+        id,
+        name
+      )
+    `)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new AppError(error.message, 500);
+  }
+
+  return data;
+}
+
+export async function getCircuitById(id: string) {
+  const { data, error } = await supabase
+    .from("circuits")
+    .select(`
+      *,
+      tourist_places (
+        id,
+        name
+      ),
+      circuit_places (
+        tourist_places (*)
+      ),
+      circuit_hotels (
+        hotels (*)
+      )
+    `)
+    .eq("id", id)
+    .single();
+
+  if (error) {
+    throw new AppError(
+      "Circuit introuvable.",
+      404
+    );
+  }
+
+  return data;
+}
+
+export async function createCircuit(
+  client: SupabaseClient,
+  input: CircuitInput
+) {
+  const { data, error } = await client
+    .from("circuits")
+    .insert(input)
+    .select()
+    .single();
+
+  if (error) {
+    throw new AppError(error.message, 500);
+  }
+
+  return data;
+}
+
+export async function updateCircuit(
+  client: SupabaseClient,
+  id: string,
+  input: Partial<CircuitInput>
+) {
+  const { data, error } = await client
+    .from("circuits")
+    .update(input)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    throw new AppError(error.message, 500);
+  }
+
+  if (!data) {
+    throw new AppError(
+      "Circuit introuvable.",
+      404
+    );
+  }
+
+  return data;
+}
+
+export async function deleteCircuit(
+  client: SupabaseClient,
+  id: string
+) {
+  const { error } = await client
+    .from("circuits")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    throw new AppError(error.message, 500);
+  }
+}
+
+export async function attachTouristPlace(
+  client: SupabaseClient,
+  circuitId: string,
+  touristPlaceId: string
+) {
+  const { error } = await client
+    .from("circuit_places")
+    .insert({
+      circuit_id: circuitId,
+      tourist_place_id: touristPlaceId,
+    });
+
+  if (error) {
+    throw new AppError(error.message, 500);
+  }
+}
+
+export async function detachTouristPlace(
+  client: SupabaseClient,
+  circuitId: string,
+  touristPlaceId: string
+) {
+  const { error } = await client
+    .from("circuit_places")
+    .delete()
+    .eq("circuit_id", circuitId)
+    .eq("tourist_place_id", touristPlaceId);
+
+  if (error) {
+    throw new AppError(error.message, 500);
+  }
+}
+
+export async function attachHotel(
+  client: SupabaseClient,
+  circuitId: string,
+  hotelId: string
+) {
+  const { error } = await client
+    .from("circuit_hotels")
+    .insert({
+      circuit_id: circuitId,
+      hotel_id: hotelId,
+    });
+
+  if (error) {
+    throw new AppError(error.message, 500);
+  }
+}
+
+export async function detachHotel(
+  client: SupabaseClient,
+  circuitId: string,
+  hotelId: string
+) {
+  const { error } = await client
+    .from("circuit_hotels")
+    .delete()
+    .eq("circuit_id", circuitId)
+    .eq("hotel_id", hotelId);
+
+  if (error) {
+    throw new AppError(error.message, 500);
+  }
+}
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\services\comment.service.ts ==========
+import { SupabaseClient } from "@supabase/supabase-js";
+import { supabase } from "../config/supabase";
+import { AppError } from "../middlewares/errorHandler";
+import { CommentInput } from "../schemas/comment.schema";
+
+// MODIFIÉ : reçoit le client authentifié (sinon la RLS ne montre que
+// les commentaires approuvés et la modération ne verrait aucun "pending").
+export async function listComments(client: SupabaseClient) {
+  const { data, error } = await client
+    .from("comments")
+    .select(`
+      *,
+      tourist_places (
+        id,
+        name
+      ),
+      circuits (
+        id,
+        title
+      )
+    `)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new AppError(error.message, 500);
+  }
+
+  return data;
+}
+
+export async function listApprovedComments(
+  touristPlaceId?: string,
+  circuitId?: string
+) {
+  let query = supabase
+    .from("comments")
+    .select(`
+      *,
+      tourist_places (
+        id,
+        name
+      ),
+      circuits (
+        id,
+        title
+      )
+    `)
+    .eq("status", "approved")
+    .order("created_at", { ascending: false });
+
+  if (touristPlaceId) {
+    query = query.eq("tourist_place_id", touristPlaceId);
+  }
+
+  if (circuitId) {
+    query = query.eq("circuit_id", circuitId);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new AppError(error.message, 500);
+  }
+
+  return data;
+}
+
+export async function createComment(
+  client: SupabaseClient,
+  userId: string,
+  input: CommentInput
+) {
+  const { data, error } = await client
+    .from("comments")
+    .insert({
+      user_id: userId,
+      content: input.content,
+      rating: input.rating,
+      tourist_place_id: input.tourist_place_id ?? null,
+      circuit_id: input.circuit_id ?? null,
+      status: "pending",
+    })
+    .select()
+    .single();
+
+  if (error) {
+    throw new AppError(error.message, 500);
+  }
+
+  return data;
+}
+
+export async function updateComment(
+  client: SupabaseClient,
+  id: string,
+  input: Partial<CommentInput>
+) {
+  const { data, error } = await client
+    .from("comments")
+    .update(input)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    throw new AppError(error.message, 500);
+  }
+
+  if (!data) {
+    throw new AppError("Commentaire introuvable.", 404);
+  }
+
+  return data;
+}
+
+export async function updateCommentStatus(
+  client: SupabaseClient,
+  id: string,
+  status: "pending" | "approved" | "rejected"
+) {
+  const { data, error } = await client
+    .from("comments")
+    .update({ status })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    throw new AppError(error.message, 500);
+  }
+
+  if (!data) {
+    throw new AppError("Commentaire introuvable.", 404);
+  }
+
+  return data;
+}
+
+export async function deleteComment(
+  client: SupabaseClient,
+  id: string
+) {
+  const { error } = await client
+    .from("comments")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    throw new AppError(error.message, 500);
+  }
+}
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\services\hotel.service.ts ==========
+import { SupabaseClient } from "@supabase/supabase-js";
+import { supabase } from "../config/supabase";
+import { AppError } from "../middlewares/errorHandler";
+import { HotelInput } from "../schemas/hotel.schema";
+
+export async function listHotels() {
+  const { data, error } = await supabase
+    .from("hotels")
+    .select(`
+      *,
+      tourist_places (
+        id,
+        name
+      )
+    `)
+    .order("created_at", {
+      ascending: false,
+    });
+
+  if (error) {
+    throw new AppError(error.message, 500);
+  }
+
+  return data;
+}
+
+export async function getHotelById(id: string) {
+  const { data, error } = await supabase
+    .from("hotels")
+    .select(`
+      *,
+      tourist_places (
+        id,
+        name
+      )
+    `)
+    .eq("id", id)
+    .single();
+
+  if (error) {
+    throw new AppError(
+      "Hôtel introuvable.",
+      404
+    );
+  }
+
+  return data;
+}
+
+export async function createHotel(
+  client: SupabaseClient,
+  input: HotelInput
+) {
+  const { data, error } = await client
+    .from("hotels")
+    .insert(input)
+    .select()
+    .single();
+
+  if (error) {
+    throw new AppError(error.message, 500);
+  }
+
+  return data;
+}
+
+export async function updateHotel(
+  client: SupabaseClient,
+  id: string,
+  input: Partial<HotelInput>
+) {
+  const { data, error } = await client
+    .from("hotels")
+    .update(input)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    throw new AppError(error.message, 500);
+  }
+
+  if (!data) {
+    throw new AppError(
+      "Hôtel introuvable.",
+      404
+    );
+  }
+
+  return data;
+}
+
+export async function deleteHotel(
+  client: SupabaseClient,
+  id: string
+) {
+  const { error } = await client
+    .from("hotels")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    throw new AppError(error.message, 500);
+  }
+}
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\services\media.service.ts ==========
+import { randomUUID } from "crypto";
+import { SupabaseClient } from "@supabase/supabase-js";
+import { createAuthenticatedSupabase } from "../config/supabaseAuth";
+import { supabase } from "../config/supabase";
+import { AppError } from "../middlewares/errorHandler";
+
+import {
+  MediaUploadInput,
+  MediaFromUrlInput,
+} from "../schemas/media.schema";
+
+const BUCKET = "media";
+
+export async function uploadMedia(
+  file: Express.Multer.File,
+  input: MediaUploadInput,
+  token: string
+) {
+  const client =
+    createAuthenticatedSupabase(token);
+
+  const extension =
+    file.originalname.split(".").pop() || "bin";
+
+  const path =
+    `${input.entity_type}/${input.entity_id}/${randomUUID()}.${extension}`;
+
+  const { error: uploadError } =
+    await client.storage
+      .from(BUCKET)
+      .upload(
+        path,
+        file.buffer,
+        {
+          contentType: file.mimetype,
+          upsert: false,
+        }
+      );
+
+  if (uploadError) {
+    throw new AppError(
+      uploadError.message,
+      500
+    );
+  }
+
+  const { data: publicUrlData } =
+    client.storage
+      .from(BUCKET)
+      .getPublicUrl(path);
+
+  const type =
+    file.mimetype.startsWith("video")
+      ? "video"
+      : "photo";
+
+  const { data, error } =
+    await client
+      .from("media")
+      .insert({
+        url: publicUrlData.publicUrl,
+        type,
+        alt_text: input.alt_text || null,
+        entity_type: input.entity_type,
+        entity_id: input.entity_id,
+        caption: input.caption || null,
+        sort_order: input.sort_order,
+      })
+      .select()
+      .single();
+
+  if (error) {
+    throw new AppError(
+      error.message,
+      500
+    );
+  }
+
+  return data;
+}
+
+export async function saveMediaFromUrl(
+  client: SupabaseClient,
+  input: MediaFromUrlInput
+) {
+  const { data, error } =
+    await client
+      .from("media")
+      .insert({
+        url: input.url,
+        type: input.type,
+        alt_text: input.alt_text || null,
+        entity_type: input.entity_type,
+        entity_id: input.entity_id,
+        caption: input.caption || null,
+        sort_order: input.sort_order,
+      })
+      .select()
+      .single();
+
+  if (error) {
+    throw new AppError(
+      error.message,
+      500
+    );
+  }
+
+  return data;
+}
+
+export async function listMediaFor(
+  entityType: string,
+  entityId: string
+) {
+  const { data, error } =
+    await supabase
+      .from("media")
+      .select("*")
+      .eq("entity_type", entityType)
+      .eq("entity_id", entityId)
+      .order("sort_order", {
+        ascending: true,
+      });
+
+  if (error) {
+    throw new AppError(
+      error.message,
+      500
+    );
+  }
+
+  return data;
+}
+
+export async function deleteMedia(
+  client: SupabaseClient,
+  id: string
+) {
+  const { data: media, error: fetchError } =
+    await client
+      .from("media")
+      .select("url")
+      .eq("id", id)
+      .single();
+
+  if (fetchError || !media) {
+    throw new AppError(
+      "Média introuvable.",
+      404
+    );
+  }
+
+  if (media.url.includes(`/${BUCKET}/`)) {
+    const path =
+      new URL(media.url)
+        .pathname
+        .split(`/${BUCKET}/`)[1];
+
+    if (path) {
+      await client.storage
+        .from(BUCKET)
+        .remove([path]);
+    }
+  }
+
+  const { error } =
+    await client
+      .from("media")
+      .delete()
+      .eq("id", id);
+
+  if (error) {
+    throw new AppError(
+      error.message,
+      500
+    );
+  }
+}
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\services\nominatim.service.ts ==========
+import { AppError } from "../middlewares/errorHandler";
+
+const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
+
+const USER_AGENT =
+  "PlateformeAgenceVoyageMadagascar/1.0 (projet-licence-ENI)";
+
+export interface NominatimResult {
+  place_id: number;
+  osm_type: string;
+  osm_id: number;
+  name: string;
+  display_name: string;
+  lat: string;
+  lon: string;
+  category: string;
+  type: string;
+  importance: number;
+  address: {
+    tourism?: string;
+    road?: string;
+    village?: string;
+    town?: string;
+    city?: string;
+    county?: string;
+    state?: string;
+    region?: string;
+    country?: string;
+    country_code?: string;
+  };
+}
+
+export async function searchNominatim(
+  query: string
+): Promise<NominatimResult[]> {
+  const url =
+  `${NOMINATIM_URL}?` +
+  new URLSearchParams({
+    q: query,
+    format: "jsonv2",
+    limit: "5",
+    addressdetails: "1",
+    countrycodes: "mg",
+  }).toString();
+
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": USER_AGENT,
+      Accept: "application/json",
+    },
+  });
+
+  if (!res.ok) {
+    throw new AppError(
+      "Impossible de contacter OpenStreetMap.",
+      502
+    );
+  }
+
+  return (await res.json()) as NominatimResult[];
+}
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\services\placeImport.service.ts ==========
+import { createAuthenticatedSupabase } from "../config/supabaseAuth";
+import { AppError } from "../middlewares/errorHandler";
+import { PlaceImportInput } from "../schemas/placeImport.schema";
+
+export async function importTouristPlace(
+  input: PlaceImportInput,
+  token: string
+) {
+  const client =
+    createAuthenticatedSupabase(token);
+
+  const {
+    data: place,
+    error: placeError,
+  } = await client
+    .from("tourist_places")
+    .insert({
+      name: input.name,
+      description: input.description,
+      latitude: input.latitude,
+      longitude: input.longitude,
+      source_url: input.source_url || null,
+    })
+    .select()
+    .single();
+
+  if (placeError || !place) {
+    throw new AppError(
+      placeError?.message ||
+        "Impossible de créer le lieu.",
+      500
+    );
+  }
+
+  if (input.media.length > 0) {
+    const mediaRows = input.media.map((media) => ({
+      url: media.url,
+      type: media.type,
+      alt_text: media.alt_text || null,
+      entity_type: "tourist_place",
+      entity_id: place.id,
+      caption: media.caption,
+      sort_order: media.sort_order,
+    }));
+
+    const { error: mediaError } =
+      await client
+        .from("media")
+        .insert(mediaRows);
+
+    if (mediaError) {
+      // RESTAURÉ (présent dans ton ancienne version) : si les médias
+      // échouent, on supprime le lieu pour ne pas laisser une fiche incomplète.
+      await client
+        .from("tourist_places")
+        .delete()
+        .eq("id", place.id);
+
+      throw new AppError(
+        mediaError.message,
+        500
+      );
+    }
+  }
+
+  return {
+    place,
+  };
+}
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\services\placeSearch.service.ts ==========
+import {
+  searchWikipedia,
+  getWikipediaSummary,
+  getWikipediaImages,
+  WikiImage,
+} from "./wikipedia.service";
+
+import { searchNominatim } from "./nominatim.service";
+
+function normalizeName(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export async function searchPlace(query: string) {
+  const [wikipedia, osm] = await Promise.all([
+    searchWikipedia(query),
+    searchNominatim(query),
+  ]);
+
+  // Garde uniquement les résultats situés à Madagascar.
+  // Et on privilégie les résultats touristiques.
+  const uniqueOsm = osm
+    .filter(
+      (place) =>
+        place.address?.country_code === "mg"
+    )
+    .filter((place, index, array) => {
+      const normalizedCurrent = normalizeName(
+        place.name || place.display_name
+      );
+
+      const duplicateIndex = array.findIndex((other) => {
+        const normalizedOther = normalizeName(
+          other.name || other.display_name
+        );
+
+        return normalizedCurrent === normalizedOther;
+      });
+
+      if (duplicateIndex === index) {
+        return true;
+      }
+
+      const duplicate = array[duplicateIndex];
+
+      if (
+        duplicate.category === "tourism" &&
+        place.category !== "tourism"
+      ) {
+        return false;
+      }
+
+      if (
+        place.category === "tourism" &&
+        duplicate.category !== "tourism"
+      ) {
+        return true;
+      }
+
+      return false;
+    });
+
+  const results = await Promise.all(
+    uniqueOsm.map(async (place) => {
+      const placeName = normalizeName(
+        place.name || place.display_name
+      );
+
+      // Wikipédia uniquement si le nom correspond
+      // exactement après normalisation.
+      const wikiMatch = wikipedia.find((wiki) => {
+        const wikiName = normalizeName(wiki.title);
+
+        return wikiName === placeName;
+      });
+
+      let wikipediaSummary = null;
+      let wikipediaImages: WikiImage[] = [];
+
+      if (wikiMatch) {
+        wikipediaSummary = await getWikipediaSummary(
+          wikiMatch.title
+        );
+
+        wikipediaImages = await getWikipediaImages(
+          wikiMatch.title
+        );
+      }
+
+      return {
+        name: place.name || place.display_name,
+        latitude: Number(place.lat),
+        longitude: Number(place.lon),
+        address: place.display_name,
+        type: place.type,
+        category: place.category,
+        osmId: place.osm_id,
+        osmType: place.osm_type,
+        wikipedia: wikipediaSummary,
+        images: wikipediaImages,
+      };
+    })
+  );
+
+  return {
+    query,
+    results,
+  };
+}
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\services\touristPlace.service.ts ==========
+import { SupabaseClient } from "@supabase/supabase-js";
+import { supabase } from "../config/supabase";
+import { AppError } from "../middlewares/errorHandler";
+import { TouristPlaceInput } from "../schemas/touristPlace.schema";
+
+export async function listTouristPlaces() {
+  const { data, error } = await supabase
+    .from("tourist_places")
+    .select("*")
+    .order("created_at", {
+      ascending: false,
+    });
+
+  if (error) {
+    throw new AppError(error.message, 500);
+  }
+
+  return data;
+}
+
+export async function getTouristPlaceById(
+  id: string
+) {
+  const { data, error } = await supabase
+    .from("tourist_places")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (error) {
+    throw new AppError(
+      "Lieu touristique introuvable.",
+      404
+    );
+  }
+
+  return data;
+}
+
+export async function createTouristPlace(
+  client: SupabaseClient,
+  input: TouristPlaceInput
+) {
+  const { data, error } = await client
+    .from("tourist_places")
+    .insert(input)
+    .select()
+    .single();
+
+  if (error) {
+    throw new AppError(error.message, 500);
+  }
+
+  return data;
+}
+
+export async function updateTouristPlace(
+  client: SupabaseClient,
+  id: string,
+  input: Partial<TouristPlaceInput>
+) {
+  const { data, error } = await client
+    .from("tourist_places")
+    .update(input)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    throw new AppError(error.message, 500);
+  }
+
+  if (!data) {
+    throw new AppError(
+      "Lieu touristique introuvable.",
+      404
+    );
+  }
+
+  return data;
+}
+
+export async function deleteTouristPlace(
+  client: SupabaseClient,
+  id: string
+) {
+  const { error } = await client
+    .from("tourist_places")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    throw new AppError(error.message, 500);
+  }
+}
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\services\wikipedia.service.ts ==========
+import { AppError } from "../middlewares/errorHandler";
+
+const WIKI_LANG = "fr";
+
+// Bonne pratique demandée par Wikimedia pour les appels serveur-à-serveur :
+// s'identifier plutôt que d'envoyer une requête anonyme.
+const USER_AGENT =
+  "PlateformeAgenceVoyageMadagascar/1.0 (projet-licence-ENI)";
+
+export interface WikiSearchResult {
+  title: string;
+  snippet: string;
+}
+
+export async function searchWikipedia(
+  query: string
+): Promise<WikiSearchResult[]> {
+  const url = `https://${WIKI_LANG}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(
+    query
+  )}&srlimit=5&format=json&origin=*`;
+
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": USER_AGENT,
+    },
+  });
+
+  if (!res.ok) {
+    throw new AppError("Impossible de contacter Wikipédia.", 502);
+  }
+
+  const data = (await res.json()) as {
+    query?: {
+      search?: Array<{
+        title: string;
+        snippet: string;
+      }>;
+    };
+  };
+
+  return (data.query?.search || []).map(
+    (r: { title: string; snippet: string }) => ({
+      title: r.title,
+      snippet: r.snippet.replace(/<[^>]+>/g, ""),
+    })
+  );
+}
+
+export interface WikiSummary {
+  title: string;
+  description: string;
+  thumbnailUrl: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  sourceUrl: string;
+}
+
+export async function getWikipediaSummary(
+  title: string
+): Promise<WikiSummary> {
+  const url = `https://${WIKI_LANG}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(
+    title
+  )}`;
+
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": USER_AGENT,
+    },
+  });
+
+  if (!res.ok) {
+    throw new AppError("Page Wikipédia introuvable.", 404);
+  }
+
+  const data = (await res.json()) as {
+    title?: string;
+    extract?: string;
+    thumbnail?: {
+      source?: string;
+    };
+    originalimage?: {
+      source?: string;
+    };
+    coordinates?: {
+      lat?: number;
+      lon?: number;
+    };
+    content_urls?: {
+      desktop?: {
+        page?: string;
+      };
+    };
+  };
+
+  return {
+    title: data.title || title,
+    description: data.extract || "",
+    thumbnailUrl:
+      data.thumbnail?.source ||
+      data.originalimage?.source ||
+      null,
+    latitude: data.coordinates?.lat ?? null,
+    longitude: data.coordinates?.lon ?? null,
+    sourceUrl:
+      data.content_urls?.desktop?.page ||
+      `https://${WIKI_LANG}.wikipedia.org/wiki/${encodeURIComponent(
+        title
+      )}`,
+  };
+}
+
+export interface WikiImage {
+  url: string;
+  title: string;
+  descriptionUrl: string | null;
+  author: string | null;
+  license: string | null;
+}
+
+export async function getWikipediaImages(
+  title: string
+): Promise<WikiImage[]> {
+  const url =
+    `https://${WIKI_LANG}.wikipedia.org/w/api.php?` +
+    new URLSearchParams({
+      action: "query",
+      prop: "images",
+      titles: title,
+      imlimit: "10",
+      format: "json",
+      origin: "*",
+    }).toString();
+
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": USER_AGENT,
+      Accept: "application/json",
+    },
+  });
+
+  if (!res.ok) {
+    throw new AppError(
+      "Impossible de récupérer les images Wikipédia.",
+      502
+    );
+  }
+
+  const data = (await res.json()) as {
+    query?: {
+      pages?: Record<
+        string,
+        {
+          images?: Array<{
+            title: string;
+          }>;
+        }
+      >;
+    };
+  };
+
+  const pages = data.query?.pages || {};
+  const page = Object.values(pages)[0];
+  const images = page?.images || [];
+
+  // On garde uniquement les formats d'images classiques.
+  // Cela élimine notamment les SVG utilisés pour les icônes,
+  // logos techniques, boutons, etc.
+  const allowedExtensions = [
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".webp",
+  ];
+
+  const photoImages = images.filter((image) => {
+    const imageTitle = image.title.toLowerCase();
+
+    return allowedExtensions.some((extension) =>
+      imageTitle.endsWith(extension)
+    );
+  });
+
+  const results = await Promise.all(
+    photoImages.map(async (image) => {
+      const infoUrl =
+        `https://${WIKI_LANG}.wikipedia.org/w/api.php?` +
+        new URLSearchParams({
+          action: "query",
+          prop: "imageinfo",
+          titles: image.title,
+          iiprop: "url|extmetadata",
+          iiurlwidth: "1200",
+          format: "json",
+          origin: "*",
+        }).toString();
+
+      const infoRes = await fetch(infoUrl, {
+        headers: {
+          "User-Agent": USER_AGENT,
+          Accept: "application/json",
+        },
+      });
+
+      if (!infoRes.ok) {
+        return null;
+      }
+
+      const infoData = (await infoRes.json()) as {
+        query?: {
+          pages?: Record<
+            string,
+            {
+              imageinfo?: Array<{
+                thumburl?: string;
+                url?: string;
+                descriptionurl?: string;
+                extmetadata?: {
+                  Artist?: {
+                    value?: string;
+                  };
+                  LicenseShortName?: {
+                    value?: string;
+                  };
+                };
+              }>;
+            }
+          >;
+        };
+      };
+
+      const infoPages = infoData.query?.pages || {};
+      const infoPage = Object.values(infoPages)[0];
+      const info = infoPage?.imageinfo?.[0];
+
+      if (!info) {
+        return null;
+      }
+
+      return {
+        url: info.thumburl || info.url || "",
+        title: image.title.replace(/^File:/, ""),
+        descriptionUrl: info.descriptionurl || null,
+        author:
+          info.extmetadata?.Artist?.value || null,
+        license:
+          info.extmetadata?.LicenseShortName?.value || null,
+      };
+    })
+  );
+
+  return results.filter(
+    (image): image is WikiImage =>
+      image !== null && image.url.length > 0
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\types\express.d.ts ==========
+import { User } from "@supabase/supabase-js";
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: User;
+    }
+  }
+}
+
+export {};
+
+========== C:\Users\Paradisa\ProjetLicense\backend\src\utils\asyncHandler.ts ==========
+import { Request, Response, NextFunction, RequestHandler } from "express";
+
+export function asyncHandler(fn: RequestHandler): RequestHandler {
+  return (req: Request, res: Response, next: NextFunction) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\AGENTS.md ==========
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\CLAUDE.md ==========
+@AGENTS.md
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\eslint.config.mjs ==========
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+
+export default defineConfig([
+  ...nextVitals,
+  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts"]),
+]);
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\next-env.d.ts ==========
+/// <reference types="next" />
+/// <reference types="next/image-types/global" />
+import "./.next/dev/types/routes.d.ts";
+import "./.next/dev/types/root-params.d.ts";
+
+// NOTE: This file should not be edited
+// see https://nextjs.org/docs/app/api-reference/config/typescript for more information.
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\next.config.ts ==========
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  reactStrictMode: true,
+  allowedDevOrigins: ["192.168.56.1","192.168.1.126"],
+};
+
+export default nextConfig;
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\package.json ==========
+{
+  "name": "madagascar-tourism-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.117.2",
+    "lucide-react": "^0.468.0",
+    "next": "16.3.5",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "16.3.5",
+    "typescript": "^5.7.0"
+  }
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\postcss.config.mjs ==========
+const config = {
+  plugins: {
+    "@tailwindcss/postcss": {},
+  },
+};
+
+export default config;
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\README.md ==========
+# Frontend — Phase 1
+
+Frontend Next.js 16 + React 19 + Tailwind CSS 4 pour le prototype touristique.
+
+## Installation
+
+```powershell
+npm install
+```
+
+Créer `.env.local` à la racine du frontend :
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:5000/api
+```
+
+## Lancement
+
+```powershell
+npm run dev
+```
+
+Puis ouvrir `http://localhost:3000`.
+
+## Vérifications
+
+```powershell
+npm run lint
+npm run build
+```
+
+La configuration Tailwind 4 utilise `postcss.config.mjs` à la racine et `src/app/globals.css` avec `@import "tailwindcss"`.
+
+## Pages
+
+- `/feed` : feed public des lieux touristiques.
+- `/tourist-places` : gestion des lieux.
+- `/tourist-places/new` : ajout manuel ou import assisté Wikipédia.
+- `/circuits` : gestion des circuits.
+- `/circuits/[id]` : détail, liaisons et médias d'un circuit.
+- `/hotels` : gestion des hôtels.
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\tsconfig.json ==========
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    ".next/types/**/*.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\postcss.config.js ==========
+module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+};
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\README.md ==========
+# Frontend Phase 1 — interface de test pour le backend Phase 1
+
+Ce n'est pas un prototype jetable : c'est le vrai début de ton frontend
+Next.js. Pour l'instant, il montre tout à tout le monde (pas de rôles,
+pas d'authentification) parce que le backend n'en a pas encore. Le
+bandeau en haut de l'app le rappelle.
+
+## 1. Copier les fichiers
+
+Copie `app/`, `components/`, `lib/` dans ton projet Next.js déjà
+initialisé (ça remplace `app/layout.js`, `app/page.js`, `app/globals.css`
+générés par défaut — c'est voulu).
+
+Copie aussi `tailwind.config.js` et `postcss.config.js` **seulement si
+tu n'as pas déjà répondu "oui" à Tailwind CSS pendant `create-next-app`**
+(dans ce cas ils existent déjà et sont probablement corrects).
+
+## 2. Installer Tailwind si besoin
+
+Si `tailwind.config.js` n'existait pas avant :
+
+```bash
+npm install -D tailwindcss postcss autoprefixer
+```
+
+## 3. Configurer l'URL du backend
+
+Crée `.env.local` à la racine du frontend (copie `.env.local.example`) :
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:5000/api
+```
+
+## 4. Lancer les deux serveurs
+
+Dans deux terminaux séparés :
+
+```bash
+# terminal 1 — backend
+cd backend && npm run dev
+
+# terminal 2 — frontend
+cd frontend && npm run dev
+```
+
+Ouvre `http://localhost:3000`.
+
+## 5. Ce que tu peux tester
+
+- **/circuits** — liste, création, suppression
+- **/circuits/[id]** — modification, suppression, liaison à des lieux et
+  hôtels (menus déroulants), upload de photos/vidéos, suppression de
+  médias
+- **/tourist-places** — liste, création, modification, suppression
+- **/hotels** — liste, création, modification, suppression
+
+Pour tester les liaisons et l'upload, crée d'abord au moins un lieu
+touristique et un hôtel (pages dédiées), puis va sur la fiche d'un
+circuit pour les lui associer.
+
+## Choix faits, à savoir
+
+- **JavaScript, pas TypeScript** côté frontend — conforme à ta stack
+  d'origine (le backend, lui, est en TypeScript).
+- **`fetch` natif plutôt qu'Axios**, via `lib/api.js` — évite une
+  dépendance en plus pour un besoin simple ; dis-moi si tu préfères
+  Axios, c'est un changement mineur.
+- **App Router** (pas de `react-router-dom` : Next.js gère le routing
+  via la structure de dossiers `app/`).
+
+## Ce qui n'est pas encore là (normal)
+
+- Pas de connexion, pas de notion de "mon compte"
+- Pas de sélecteur de langue (Phase 0 du planning, à faire séparément)
+- Pas de carte, pas de réservation — ça vient aux phases suivantes
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\tailwind.config.js ==========
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: ["./app/**/*.{js,jsx}", "./components/**/*.{js,jsx}"],
+  theme: {
+    extend: {
+      colors: {
+        ink: "#1B2434",
+        paper: "#FAF6EE",
+        line: "#E7DFCD",
+        terre: { DEFAULT: "#C1602B", dark: "#A34F22" },
+        foret: { DEFAULT: "#5C9575", dark: "#477357" },
+        or: "#E3B23C",
+      },
+      fontFamily: {
+        serif: ["Fraunces", "serif"],
+        sans: ["IBM Plex Sans", "ui-sans-serif", "system-ui"],
+        mono: ["IBM Plex Mono", "ui-monospace", "monospace"],
+      },
+    },
+  },
+  plugins: [],
+};
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\globals.css ==========
+@import "tailwindcss";
+
+@theme {
+  /* Palette existante (conservée pour ne rien casser) */
+  --color-paper: #f7f3ed;
+  --color-ink: #3d352f;
+  --color-line: #ddd4c8;
+  --color-terre: #8b5e3c;
+  --color-terre-dark: #6f472d;
+  --color-foret: #4f7f5f;
+  --color-foret-dark: #3f654c;
+  --color-or: #d9a441;
+
+  /* Nouvelle palette : vert royal / émeraude */
+  --color-emeraude-950: #04261b;
+  --color-emeraude-900: #063d2a;
+  --color-emeraude-800: #0a5a3c;
+  --color-emeraude-700: #0e7a4f;
+  --color-emeraude-500: #17b26a;
+  --color-emeraude-300: #6ee7b7;
+  --color-or-clair: #f2c660;
+
+  /* Polices (chargées dans layout.jsx) */
+  --font-serif: "Fraunces", Georgia, serif;
+  --font-sans: "DM Sans", "IBM Plex Sans", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+}
+
+@layer base {
+  body {
+    @apply bg-emeraude-950 text-white font-sans;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-serif;
+  }
+}
+
+@layer components {
+  /* ============================================================
+     ANCIENNES CLASSES (inchangées : les pages actuelles continuent
+     de fonctionner)
+     ============================================================ */
+  .card {
+    @apply bg-white border border-line rounded-xl p-5 shadow-sm;
+  }
+
+  .btn {
+    @apply text-sm font-medium px-4 py-2 rounded-lg transition-colors;
+  }
+
+  .btn-primary {
+    @apply text-sm font-medium px-4 py-2 rounded-lg transition-colors bg-terre text-white hover:bg-terre-dark;
+  }
+
+  .btn-secondary {
+    @apply text-sm font-medium px-4 py-2 rounded-lg transition-colors bg-ink text-white hover:opacity-90;
+  }
+
+  .btn-ghost {
+    @apply text-sm text-terre hover:text-terre-dark underline underline-offset-2;
+  }
+
+  .btn-danger-ghost {
+    @apply text-xs text-red-600 hover:text-red-700 underline underline-offset-2;
+  }
+
+  .input {
+    @apply w-full border border-line rounded-lg px-3 py-2 text-sm bg-white;
+    @apply focus:outline-none focus:ring-2 focus:ring-terre/25 focus:border-terre;
+  }
+
+  .label {
+    @apply block text-xs font-medium text-ink/50 mb-1;
+  }
+
+  .page-title {
+    @apply text-2xl font-serif font-semibold text-ink;
+  }
+
+  .section-title {
+    @apply text-xs font-mono text-terre mb-2;
+  }
+
+  .empty-state {
+    @apply text-sm text-ink/40 italic py-3 text-center;
+  }
+
+  /* ============================================================
+     NOUVEAU DESIGN : jungle émeraude + verre dépoli
+     (à utiliser sur les pages qui ont <PageBackground />)
+     ============================================================ */
+
+  /* Fond de secours : s'affiche tant que la photo n'existe pas */
+  .bg-jungle-fallback {
+    background:
+      radial-gradient(ellipse at 15% 10%, rgb(14 122 79 / 0.9), transparent 55%),
+      radial-gradient(ellipse at 90% 85%, rgb(23 178 106 / 0.35), transparent 50%),
+      #04261b;
+  }
+
+  /* Voile sombre au-dessus de la photo : garde le texte lisible */
+  .bg-veil {
+    background: linear-gradient(
+      to bottom,
+      rgb(4 38 27 / 0.55),
+      rgb(6 61 42 / 0.3) 45%,
+      rgb(4 38 27 / 0.88)
+    );
+  }
+
+  /* Carte flottante transparente */
+  .glass {
+    @apply rounded-3xl border border-white/20 bg-white/10 text-white shadow-xl shadow-black/20 backdrop-blur-md sm:backdrop-blur-xl;
+  }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass {
+      background: rgb(4 38 27 / 0.78);
+    }
+  }
+
+  /* Bouton principal doré */
+  .btn-gold {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-or px-6 py-3 text-sm font-semibold text-emeraude-950 shadow-lg shadow-black/25 transition hover:brightness-110 active:scale-95;
+    @apply focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-or-clair;
+  }
+
+  /* Bouton secondaire transparent */
+  .btn-glass {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-white/30 bg-white/15 px-5 py-2.5 text-sm font-medium text-white backdrop-blur transition hover:bg-white/25 active:scale-95;
+  }
+
+  /* Champ de saisie transparent */
+  .input-glass {
+    @apply w-full rounded-2xl border border-white/25 bg-white/10 px-4 py-3 text-sm text-white placeholder:text-white/60 backdrop-blur;
+    @apply focus:border-or focus:outline-none focus:ring-2 focus:ring-or/40;
+  }
+
+  /* Petite étiquette */
+  .chip {
+    @apply inline-flex items-center rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-medium text-white/90 backdrop-blur;
+  }
+
+  /* Sur-titre en capitales espacées */
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-[0.22em] text-or-clair;
+  }
+
+  /* Grand titre d'accueil */
+  .hero-title {
+    @apply font-serif text-4xl font-bold leading-[1.05] tracking-tight text-white sm:text-6xl;
+    text-shadow: 0 2px 24px rgb(0 0 0 / 0.45);
+  }
+}
+
+/* Masque la barre de défilement (carrousel du feed) */
+@utility scrollbar-hide {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ============================================================
+   ADMIN : thème sombre, sans image (classes préfixées adm-)
+   ============================================================ */
+@layer components {
+  .adm-card {
+    @apply rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5;
+  }
+  .adm-row {
+    @apply rounded-lg border border-slate-800 bg-slate-950/50 p-4;
+  }
+  .adm-h1 {
+    @apply font-sans text-2xl font-semibold tracking-tight text-slate-50;
+  }
+  .adm-h2 {
+    @apply font-sans text-base font-semibold text-slate-100;
+  }
+  .adm-sub {
+    @apply mt-1 text-sm text-slate-400;
+  }
+  .adm-label {
+    @apply mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-400;
+  }
+  .adm-input {
+    @apply w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500;
+    @apply focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/30;
+  }
+  .adm-btn {
+    @apply inline-flex items-center justify-center rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .adm-btn-ghost {
+    @apply inline-flex items-center justify-center rounded-lg border border-slate-700 px-3 py-2 text-sm font-medium text-slate-200 transition hover:bg-slate-800;
+  }
+  .adm-btn-ok {
+    @apply inline-flex items-center justify-center rounded-lg bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20;
+  }
+  .adm-btn-warn {
+    @apply inline-flex items-center justify-center rounded-lg bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-300 transition hover:bg-amber-500/20;
+  }
+  .adm-btn-danger {
+    @apply inline-flex items-center justify-center rounded-lg bg-red-500/10 px-3 py-2 text-sm font-medium text-red-300 transition hover:bg-red-500/20;
+  }
+  .adm-alert {
+    @apply rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200;
+  }
+  .adm-note {
+    @apply rounded-lg border border-slate-700 bg-slate-900 p-3 text-sm text-slate-200;
+  }
+  .adm-badge {
+    @apply inline-flex items-center rounded-md border border-slate-700 px-2 py-0.5 text-xs text-slate-300;
+  }
+  .adm-empty {
+    @apply py-10 text-center text-sm text-slate-500;
+  }
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\layout.jsx ==========
+import "./globals.css";
+import Nav from "../components/Nav";
+import Shell from "../components/Shell";
+
+export const metadata = {
+  title: "Madagascar Tour — Voyages et circuits à Madagascar",
+};
+
+export const viewport = {
+  themeColor: "#063d2a",
+};
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="fr">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body>
+        <Nav />
+        <Shell>{children}</Shell>
+      </body>
+    </html>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\page.jsx ==========
+import Link from "next/link";
+import PageBackground from "@/components/PageBackground";
+
+const shortcuts = [
+  {
+    href: "/circuits",
+    title: "Circuits",
+    text: "Les itinéraires à parcourir.",
+  },
+  {
+    href: "/tourist-places",
+    title: "Lieux",
+    text: "Les sites à ne pas manquer.",
+  },
+  {
+    href: "/hotels",
+    title: "Hôtels",
+    text: "Où dormir pendant le voyage.",
+  },
+];
+
+export default function Home() {
+  return (
+    <>
+      <PageBackground name="jungle" />
+
+      <section className="flex min-h-[70svh] flex-col justify-center gap-6 py-10">
+        <p className="eyebrow">Madagascar · Agence de voyage</p>
+
+        <h1 className="hero-title">
+          Madagascar, comme vous ne l&apos;avez jamais vue.
+        </h1>
+
+        <p className="max-w-md text-base text-white/85 sm:text-lg">
+          Forêts tropicales, baobabs, lagons : découvrez les lieux, les
+          circuits et les hôtels de notre agence.
+        </p>
+
+        <div className="flex flex-wrap gap-3">
+          <Link href="/circuits" className="btn-gold">
+            Découvrir les circuits
+          </Link>
+          <Link href="/feed" className="btn-glass">
+            Explorer le feed
+          </Link>
+        </div>
+      </section>
+
+      <section className="grid gap-3 sm:grid-cols-3">
+        {shortcuts.map((s) => (
+          <Link
+            key={s.href}
+            href={s.href}
+            className="glass p-5 transition hover:-translate-y-0.5 hover:bg-white/15"
+          >
+            <h2 className="font-serif text-xl font-semibold">{s.title}</h2>
+            <p className="mt-1 text-sm text-white/80">{s.text}</p>
+          </Link>
+        ))}
+      </section>
+    </>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\admin\layout.jsx ==========
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
+import { getCurrentUser, getCurrentRole } from "@/lib/auth";
+import AdminSidebar from "@/components/admin/AdminSidebar";
+
+export default function AdminLayout({ children }) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function checkAccess() {
+      const user = await getCurrentUser();
+
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+
+      const role = await getCurrentRole();
+
+      if (role !== "admin" && role !== "super_admin") {
+        router.replace("/");
+        return;
+      }
+
+      setLoading(false);
+    }
+
+    checkAccess();
+  }, [router]);
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-950">
+        <p className="text-sm text-slate-400">Vérification des accès...</p>
+      </main>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-200">
+      <AdminSidebar />
+
+      <main className="min-h-screen p-4 sm:p-6 lg:ml-64 lg:p-8">
+        {children}
+      </main>
+    </div>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\admin\page.jsx ==========
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { api } from "@/lib/api";
+
+export default function AdminPage() {
+  const [stats, setStats] = useState({
+    places: 0,
+    circuits: 0,
+    hotels: 0,
+    comments: 0,
+  });
+
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadStats() {
+      try {
+        const [
+          places,
+          circuits,
+          hotels,
+          comments,
+        ] = await Promise.all([
+          api.get("/tourist-places"),
+          api.get("/circuits"),
+          api.get("/hotels"),
+          api.get("/comments/admin"),
+        ]);
+
+        setStats({
+          places: places?.length || 0,
+          circuits: circuits?.length || 0,
+          hotels: hotels?.length || 0,
+          comments: comments?.length || 0,
+        });
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadStats();
+  }, []);
+
+  const cards = [
+    {
+      label: "Lieux touristiques",
+      value: stats.places,
+      href: "/admin/places",
+    },
+    {
+      label: "Circuits",
+      value: stats.circuits,
+      href: "/admin/circuits",
+    },
+    {
+      label: "Hôtels",
+      value: stats.hotels,
+      href: "/admin/hotels",
+    },
+    {
+      label: "Commentaires",
+      value: stats.comments,
+      href: "/admin/comments",
+    },
+  ];
+
+  return (
+    <div className="mx-auto max-w-6xl">
+      <h1 className="adm-h1">Dashboard</h1>
+      <p className="adm-sub">Vue générale de Madagascar Tour.</p>
+
+      <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {cards.map((card) => (
+          <Link
+            key={card.label}
+            href={card.href}
+            className="adm-card block transition hover:border-emerald-600/60"
+          >
+            <p className="text-sm text-slate-400">{card.label}</p>
+
+            <p className="mt-2 font-mono text-3xl font-medium text-slate-50">
+              {loading ? "…" : card.value}
+            </p>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\admin\circuits\page.jsx ==========
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { api } from "@/lib/api";
+
+export default function AdminCircuitsPage() {
+  const [circuits, setCircuits] = useState([]);
+  const [places, setPlaces] = useState([]);
+  const [hotels, setHotels] = useState([]);
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const [search, setSearch] = useState("");
+
+  const [form, setForm] = useState({
+    title: "",
+    description: "",
+    price: "",
+    tourist_place_id: "",
+  });
+
+  const [creating, setCreating] = useState(false);
+
+  async function loadData() {
+    try {
+      setLoading(true);
+      setError("");
+
+      const [circuitsData, placesData, hotelsData] = await Promise.all([
+        api.get("/circuits"),
+        api.get("/tourist-places"),
+        api.get("/hotels"),
+      ]);
+
+      setCircuits(circuitsData || []);
+      setPlaces(placesData || []);
+      setHotels(hotelsData || []);
+    } catch (err) {
+      setError(err.message || "Impossible de charger les données.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  function handleChange(e) {
+    setForm({
+      ...form,
+      [e.target.name]: e.target.value,
+    });
+  }
+
+  async function handleCreate(e) {
+    e.preventDefault();
+
+    if (!form.title.trim()) {
+      setError("Le titre du circuit est obligatoire.");
+      return;
+    }
+
+    try {
+      setCreating(true);
+      setError("");
+
+      await api.post("/circuits", {
+        title: form.title.trim(),
+        description: form.description.trim(),
+        price: Number(form.price) || 0,
+        ...(form.tourist_place_id
+          ? { tourist_place_id: form.tourist_place_id }
+          : {}),
+      });
+
+      setForm({
+        title: "",
+        description: "",
+        price: "",
+        tourist_place_id: "",
+      });
+
+      await loadData();
+    } catch (err) {
+      setError(err.message || "Impossible de créer le circuit.");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function handleDelete(id) {
+    const confirmed = window.confirm(
+      "Voulez-vous vraiment supprimer ce circuit ?"
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setError("");
+
+      await api.del(`/circuits/${id}`);
+
+      setCircuits((current) =>
+        current.filter((circuit) => circuit.id !== id)
+      );
+    } catch (err) {
+      setError(err.message || "Impossible de supprimer le circuit.");
+    }
+  }
+
+  const filteredCircuits = circuits.filter((circuit) => {
+    const query = search.toLowerCase();
+
+    return (
+      circuit.title?.toLowerCase().includes(query) ||
+      circuit.description?.toLowerCase().includes(query)
+    );
+  });
+
+  return (
+    <div className="mx-auto max-w-6xl">
+      <div className="mb-6">
+        <h1 className="adm-h1">Circuits</h1>
+        <p className="adm-sub">Gestion des circuits touristiques.</p>
+      </div>
+
+      {error && <div className="adm-alert mb-6">{error}</div>}
+
+      {/* Création */}
+      <section className="adm-card mb-6">
+        <h2 className="adm-h2">Ajouter un circuit</h2>
+
+        <form onSubmit={handleCreate} className="mt-4 grid gap-4">
+          <div>
+            <label className="adm-label">Titre</label>
+            <input
+              type="text"
+              name="title"
+              value={form.title}
+              onChange={handleChange}
+              placeholder="Ex. Circuit Baobabs & Morondava"
+              className="adm-input"
+            />
+          </div>
+
+          <div>
+            <label className="adm-label">Description</label>
+            <textarea
+              name="description"
+              value={form.description}
+              onChange={handleChange}
+              rows={4}
+              placeholder="Décrivez brièvement le circuit..."
+              className="adm-input"
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="adm-label">Prix</label>
+              <input
+                type="number"
+                name="price"
+                value={form.price}
+                onChange={handleChange}
+                min="0"
+                placeholder="0"
+                className="adm-input"
+              />
+            </div>
+
+            <div>
+              <label className="adm-label">Lieu touristique</label>
+              <select
+                name="tourist_place_id"
+                value={form.tourist_place_id}
+                onChange={handleChange}
+                className="adm-input"
+              >
+                <option value="">Aucun lieu pour le moment</option>
+
+                {places.map((place) => (
+                  <option key={place.id} value={place.id}>
+                    {place.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={creating}
+            className="adm-btn w-full sm:w-fit"
+          >
+            {creating ? "Création..." : "Créer le circuit"}
+          </button>
+        </form>
+      </section>
+
+      {/* Liste */}
+      <section className="adm-card">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="adm-h2">Circuits existants</h2>
+            <p className="adm-sub !mt-0">{circuits.length} circuit(s)</p>
+          </div>
+
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Rechercher..."
+            className="adm-input sm:max-w-xs"
+          />
+        </div>
+
+        {loading ? (
+          <div className="adm-empty">Chargement des circuits...</div>
+        ) : filteredCircuits.length === 0 ? (
+          <div className="adm-empty">Aucun circuit trouvé.</div>
+        ) : (
+          <div className="mt-5 space-y-3">
+            {filteredCircuits.map((circuit) => (
+              <article key={circuit.id} className="adm-row">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <h3 className="font-sans font-semibold text-slate-100">
+                      {circuit.title}
+                    </h3>
+
+                    {circuit.description && (
+                      <p className="mt-1 line-clamp-2 text-sm text-slate-400">
+                        {circuit.description}
+                      </p>
+                    )}
+
+                    <p className="mt-2 font-mono text-sm text-emerald-400">
+                      {Number(circuit.price || 0).toLocaleString()} MGA
+                    </p>
+                  </div>
+
+                  <div className="flex shrink-0 gap-2">
+                    <Link
+                      href={`/admin/circuits/${circuit.id}`}
+                      className="adm-btn-ghost"
+                    >
+                      Gérer
+                    </Link>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(circuit.id)}
+                      className="adm-btn-danger"
+                    >
+                      Supprimer
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\admin\circuits\[id]\page.jsx ==========
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { api } from "@/lib/api";
+
+export default function CircuitDetailPage() {
+  const params = useParams();
+  const id = params.id;
+
+  const [circuit, setCircuit] = useState(null);
+  const [places, setPlaces] = useState([]);
+  const [hotels, setHotels] = useState([]);
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const [form, setForm] = useState({
+    title: "",
+    description: "",
+    price: "",
+  });
+
+  async function loadData() {
+    try {
+      setLoading(true);
+      setError("");
+
+      const [
+        circuitData,
+        placesData,
+        hotelsData,
+      ] = await Promise.all([
+        api.get(`/circuits/${id}`),
+        api.get("/tourist-places"),
+        api.get("/hotels"),
+      ]);
+
+      setCircuit(circuitData);
+      setPlaces(placesData || []);
+      setHotels(hotelsData || []);
+
+      setForm({
+        title: circuitData.title || "",
+        description:
+          circuitData.description || "",
+        price: circuitData.price || "",
+      });
+    } catch (err) {
+      setError(
+        err.message ||
+          "Impossible de charger le circuit."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (id) {
+      loadData();
+    }
+  }, [id]);
+
+  async function handleSave(e) {
+    e.preventDefault();
+
+    try {
+      setSaving(true);
+      setError("");
+
+      await api.put(`/circuits/${id}`, {
+        title: form.title.trim(),
+        description:
+          form.description.trim(),
+        price: Number(form.price),
+      });
+
+      await loadData();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function addPlace(placeId) {
+    try {
+      await api.post(
+        `/circuits/${id}/places/${placeId}`,
+        {}
+      );
+
+      await loadData();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function removePlace(placeId) {
+    try {
+      await api.del(
+        `/circuits/${id}/places/${placeId}`
+      );
+
+      await loadData();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function addHotel(hotelId) {
+    try {
+      await api.post(
+        `/circuits/${id}/hotels/${hotelId}`,
+        {}
+      );
+
+      await loadData();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function removeHotel(hotelId) {
+    try {
+      await api.del(
+        `/circuits/${id}/hotels/${hotelId}`
+      );
+
+      await loadData();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  if (loading) {
+    return <div className="adm-empty">Chargement...</div>;
+  }
+
+  if (!circuit) {
+    return <div className="adm-empty">Circuit introuvable.</div>;
+  }
+
+  const linkedPlaces =
+    circuit.circuit_places || [];
+
+  const linkedHotels =
+    circuit.circuit_hotels || [];
+
+  const linkedPlaceIds =
+    linkedPlaces.map(
+      (item) => item.tourist_places?.id
+    );
+
+  const linkedHotelIds =
+    linkedHotels.map(
+      (item) => item.hotels?.id
+    );
+
+  return (
+    <div className="mx-auto max-w-4xl space-y-6">
+      <div>
+        <Link
+          href="/admin/circuits"
+          className="text-sm text-emerald-400 hover:text-emerald-300"
+        >
+          ← Retour aux circuits
+        </Link>
+
+        <h1 className="adm-h1 mt-3">{circuit.title}</h1>
+      </div>
+
+      {error && <div className="adm-alert">{error}</div>}
+
+      <section className="adm-card">
+        <h2 className="adm-h2">Informations</h2>
+
+        <form onSubmit={handleSave} className="mt-4 grid gap-4">
+          <div>
+            <label className="adm-label">Titre</label>
+            <input
+              value={form.title}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  title: e.target.value,
+                })
+              }
+              className="adm-input"
+            />
+          </div>
+
+          <div>
+            <label className="adm-label">Description</label>
+            <textarea
+              value={form.description}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  description: e.target.value,
+                })
+              }
+              rows={5}
+              className="adm-input"
+            />
+          </div>
+
+          <div>
+            <label className="adm-label">Prix</label>
+            <input
+              type="number"
+              min="0"
+              value={form.price}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  price: e.target.value,
+                })
+              }
+              className="adm-input"
+            />
+          </div>
+
+          <button disabled={saving} className="adm-btn w-full sm:w-fit">
+            {saving ? "Enregistrement..." : "Enregistrer"}
+          </button>
+        </form>
+      </section>
+
+      <section className="adm-card">
+        <div className="flex items-center justify-between">
+          <h2 className="adm-h2">Lieux associés</h2>
+          <span className="adm-badge">{linkedPlaceIds.length} lié(s)</span>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          {places.map((place) => {
+            const linked = linkedPlaceIds.includes(place.id);
+
+            return (
+              <div
+                key={place.id}
+                className="adm-row flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <span className="font-medium text-slate-100">
+                  {place.name}
+                </span>
+
+                {linked ? (
+                  <button
+                    onClick={() => removePlace(place.id)}
+                    className="adm-btn-danger"
+                  >
+                    Retirer
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => addPlace(place.id)}
+                    className="adm-btn-ok"
+                  >
+                    Ajouter
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="adm-card">
+        <div className="flex items-center justify-between">
+          <h2 className="adm-h2">Hôtels associés</h2>
+          <span className="adm-badge">{linkedHotelIds.length} lié(s)</span>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          {hotels.map((hotel) => {
+            const linked = linkedHotelIds.includes(hotel.id);
+
+            return (
+              <div
+                key={hotel.id}
+                className="adm-row flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <p className="font-medium text-slate-100">{hotel.name}</p>
+                  <p className="text-sm text-slate-400">{hotel.address}</p>
+                </div>
+
+                {linked ? (
+                  <button
+                    onClick={() => removeHotel(hotel.id)}
+                    className="adm-btn-danger"
+                  >
+                    Retirer
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => addHotel(hotel.id)}
+                    className="adm-btn-ok"
+                  >
+                    Ajouter
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\admin\comments\page.jsx ==========
+"use client";
+
+import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
+
+export default function AdminCommentsPage() {
+  const [comments, setComments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  async function loadComments() {
+    try {
+      setLoading(true);
+      setError("");
+
+      const data =
+        await api.get("/comments/admin");
+
+      setComments(data || []);
+    } catch (err) {
+      setError(
+        err.message ||
+          "Impossible de charger les commentaires."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadComments();
+  }, []);
+
+  async function updateStatus(id, status) {
+    try {
+      await api.put(
+        `/comments/${id}/status`,
+        { status }
+      );
+
+      setComments((current) =>
+        current.map((comment) =>
+          comment.id === id
+            ? { ...comment, status }
+            : comment
+        )
+      );
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function remove(id) {
+    if (
+      !window.confirm(
+        "Supprimer ce commentaire ?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await api.del(`/comments/${id}`);
+
+      setComments((current) =>
+        current.filter(
+          (comment) => comment.id !== id
+        )
+      );
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  const STATUS_STYLE = {
+    approved: "border-emerald-500/40 text-emerald-300",
+    rejected: "border-amber-500/40 text-amber-300",
+  };
+
+  return (
+    <div className="mx-auto max-w-4xl">
+      <div className="mb-6">
+        <h1 className="adm-h1">Commentaires</h1>
+        <p className="adm-sub">Modération des avis des utilisateurs.</p>
+      </div>
+
+      {error && <div className="adm-alert mb-6">{error}</div>}
+
+      <section className="adm-card">
+        {loading ? (
+          <p className="adm-empty">Chargement...</p>
+        ) : comments.length === 0 ? (
+          <p className="adm-empty">Aucun commentaire.</p>
+        ) : (
+          <div className="space-y-3">
+            {comments.map((comment) => (
+              <article key={comment.id} className="adm-row">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-amber-400">
+                        {"★".repeat(comment.rating || 0)}
+                      </span>
+
+                      <span
+                        className={`adm-badge ${
+                          STATUS_STYLE[comment.status] || ""
+                        }`}
+                      >
+                        {comment.status}
+                      </span>
+                    </div>
+
+                    <p className="mt-2 text-sm text-slate-200">
+                      {comment.content}
+                    </p>
+
+                    <p className="mt-2 text-xs text-slate-500">
+                      {comment.tourist_places?.name ||
+                        comment.circuits?.title ||
+                        "Cible inconnue"}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {comment.status !== "approved" && (
+                      <button
+                        onClick={() => updateStatus(comment.id, "approved")}
+                        className="adm-btn-ok"
+                      >
+                        Approuver
+                      </button>
+                    )}
+
+                    {comment.status !== "rejected" && (
+                      <button
+                        onClick={() => updateStatus(comment.id, "rejected")}
+                        className="adm-btn-warn"
+                      >
+                        Rejeter
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => remove(comment.id)}
+                      className="adm-btn-danger"
+                    >
+                      Supprimer
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\admin\hotels\page.jsx ==========
+"use client";
+
+import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
+
+export default function AdminHotelsPage() {
+  const [hotels, setHotels] = useState([]);
+  const [places, setPlaces] = useState([]);
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+
+  const [form, setForm] = useState({
+    name: "",
+    address: "",
+    tourist_place_id: "",
+  });
+
+  async function loadData() {
+    try {
+      setLoading(true);
+      setError("");
+
+      const [hotelsData, placesData] =
+        await Promise.all([
+          api.get("/hotels"),
+          api.get("/tourist-places"),
+        ]);
+
+      setHotels(hotelsData || []);
+      setPlaces(placesData || []);
+    } catch (err) {
+      setError(
+        err.message ||
+          "Impossible de charger les hôtels."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  function handleChange(e) {
+    setForm((current) => ({
+      ...current,
+      [e.target.name]: e.target.value,
+    }));
+  }
+
+  async function handleCreate(e) {
+    e.preventDefault();
+
+    if (!form.name.trim()) {
+      setError("Le nom de l'hôtel est obligatoire.");
+      return;
+    }
+
+    if (!form.address.trim()) {
+      setError("L'adresse est obligatoire.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setError("");
+
+      await api.post("/hotels", {
+        name: form.name.trim(),
+        address: form.address.trim(),
+        ...(form.tourist_place_id
+          ? {
+              tourist_place_id:
+                form.tourist_place_id,
+            }
+          : {}),
+      });
+
+      setForm({
+        name: "",
+        address: "",
+        tourist_place_id: "",
+      });
+
+      await loadData();
+    } catch (err) {
+      setError(
+        err.message ||
+          "Impossible de créer l'hôtel."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(id) {
+    if (
+      !window.confirm(
+        "Supprimer cet hôtel ?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await api.del(`/hotels/${id}`);
+
+      setHotels((current) =>
+        current.filter(
+          (hotel) => hotel.id !== id
+        )
+      );
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  const filteredHotels = hotels.filter(
+    (hotel) => {
+      const query =
+        search.toLowerCase();
+
+      return (
+        hotel.name
+          ?.toLowerCase()
+          .includes(query) ||
+        hotel.address
+          ?.toLowerCase()
+          .includes(query)
+      );
+    }
+  );
+
+  return (
+    <div className="mx-auto max-w-4xl">
+      <div className="mb-6">
+        <h1 className="adm-h1">Hôtels</h1>
+        <p className="adm-sub">Gestion des hébergements touristiques.</p>
+      </div>
+
+      {error && <div className="adm-alert mb-6">{error}</div>}
+
+      <section className="adm-card mb-6">
+        <h2 className="adm-h2">Ajouter un hôtel</h2>
+
+        <form onSubmit={handleCreate} className="mt-4 grid gap-4">
+          <div>
+            <label className="adm-label">Nom</label>
+            <input
+              name="name"
+              value={form.name}
+              onChange={handleChange}
+              placeholder="Nom de l'hôtel"
+              className="adm-input"
+            />
+          </div>
+
+          <div>
+            <label className="adm-label">Adresse</label>
+            <input
+              name="address"
+              value={form.address}
+              onChange={handleChange}
+              placeholder="Adresse"
+              className="adm-input"
+            />
+          </div>
+
+          <div>
+            <label className="adm-label">Lieu associé</label>
+            <select
+              name="tourist_place_id"
+              value={form.tourist_place_id}
+              onChange={handleChange}
+              className="adm-input"
+            >
+              <option value="">Aucun lieu associé</option>
+
+              {places.map((place) => (
+                <option key={place.id} value={place.id}>
+                  {place.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <button disabled={saving} className="adm-btn w-full sm:w-fit">
+            {saving ? "Création..." : "Créer l'hôtel"}
+          </button>
+        </form>
+      </section>
+
+      <section className="adm-card">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="adm-h2">Hôtels existants</h2>
+            <p className="adm-sub !mt-0">{hotels.length} hôtel(s)</p>
+          </div>
+
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Rechercher..."
+            className="adm-input sm:max-w-xs"
+          />
+        </div>
+
+        {loading ? (
+          <p className="adm-empty">Chargement...</p>
+        ) : (
+          <div className="mt-5 space-y-2">
+            {filteredHotels.map((hotel) => (
+              <article
+                key={hotel.id}
+                className="adm-row flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <h3 className="font-sans font-semibold text-slate-100">
+                    {hotel.name}
+                  </h3>
+                  <p className="mt-1 text-sm text-slate-400">{hotel.address}</p>
+                </div>
+
+                <button
+                  onClick={() => handleDelete(hotel.id)}
+                  className="adm-btn-danger"
+                >
+                  Supprimer
+                </button>
+              </article>
+            ))}
+
+            {filteredHotels.length === 0 && (
+              <p className="adm-empty">Aucun hôtel trouvé.</p>
+            )}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\admin\places\page.jsx ==========
+"use client";
+
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+
+export default function PlacesPage() {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const [selectedPlace, setSelectedPlace] = useState(null);
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [localImages, setLocalImages] = useState([]);
+
+  const [importing, setImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState("");
+
+  async function handleSearch(e) {
+    e.preventDefault();
+
+    if (!query.trim()) return;
+
+    setLoading(true);
+    setSelectedPlace(null);
+    setSelectedImages([]);
+    setLocalImages([]);
+    setImportMessage("");
+
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/place-search/search?q=${encodeURIComponent(
+          query
+        )}`
+      );
+
+      const data = await response.json();
+
+      setResults(data.results || []);
+    } catch (error) {
+      console.error("Erreur recherche :", error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleSelectPlace(place) {
+    setSelectedPlace(place);
+    setSelectedImages([]);
+    setLocalImages([]);
+    setImportMessage("");
+  }
+
+  function toggleImage(image) {
+    setSelectedImages((current) => {
+      const alreadySelected = current.some(
+        (selected) => selected.url === image.url
+      );
+
+      if (alreadySelected) {
+        return current.filter(
+          (selected) => selected.url !== image.url
+        );
+      }
+
+      return [...current, image];
+    });
+  }
+
+  function handleLocalImages(event) {
+    const files = Array.from(event.target.files || []);
+
+    const newImages = files.map((file) => ({
+      id: `${file.name}-${file.lastModified}-${Math.random()}`,
+      file,
+      url: URL.createObjectURL(file),
+      name: file.name,
+    }));
+
+    setLocalImages((current) => [...current, ...newImages]);
+
+    event.target.value = "";
+  }
+
+  function removeLocalImage(id) {
+    setLocalImages((current) => {
+      const image = current.find((item) => item.id === id);
+
+      if (image) {
+        URL.revokeObjectURL(image.url);
+      }
+
+      return current.filter((item) => item.id !== id);
+    });
+  }
+
+  async function handleImport() {
+    if (!selectedPlace) return;
+
+    if (
+      selectedImages.length === 0 &&
+      localImages.length === 0
+    ) {
+      return;
+    }
+
+    setImporting(true);
+    setImportMessage("");
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error(
+          "Vous devez être connecté pour importer un lieu."
+        );
+      }
+
+      const token = session.access_token;
+
+      /*
+       * 1. Préparation des photos Internet.
+       */
+
+      const internetMedia = selectedImages.map((image, index) => ({
+        url: image.url,
+        type: "photo",
+        alt_text: image.title,
+        caption:
+          index === 0
+            ? selectedPlace.name
+            : image.title.replace(/^Fichier:/, ""),
+        sort_order: index + 1,
+      }));
+
+      /*
+       * 2. Création du lieu + photos Internet.
+       */
+
+      const placeResponse = await fetch(
+        "http://localhost:5000/api/place-search/import",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            name: selectedPlace.name,
+            description:
+              selectedPlace.wikipedia?.description || "",
+            latitude: selectedPlace.latitude,
+            longitude: selectedPlace.longitude,
+            source_url:
+              selectedPlace.wikipedia?.sourceUrl || "",
+            media: internetMedia,
+          }),
+        }
+      );
+
+      const placeData = await placeResponse.json();
+
+      if (!placeResponse.ok) {
+        throw new Error(
+          placeData.message ||
+            "Impossible d'importer le lieu."
+        );
+      }
+
+      const placeId = placeData.place.id;
+
+      /*
+       * 3. Upload des photos locales.
+       */
+
+      for (
+        let index = 0;
+        index < localImages.length;
+        index++
+      ) {
+        const localImage = localImages[index];
+
+        const formData = new FormData();
+
+        formData.append("file", localImage.file);
+        formData.append("type", "photo");
+        formData.append("alt_text", localImage.name);
+        formData.append("entity_type", "tourist_place");
+        formData.append("entity_id", placeId);
+
+        formData.append(
+          "caption",
+          selectedImages.length === 0 && index === 0
+            ? selectedPlace.name
+            : localImage.name
+        );
+
+        formData.append(
+          "sort_order",
+          String(selectedImages.length + index + 1)
+        );
+
+        const mediaResponse = await fetch(
+          "http://localhost:5000/api/media",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            body: formData,
+          }
+        );
+
+        const mediaData = await mediaResponse.json();
+
+        if (!mediaResponse.ok) {
+          throw new Error(
+            mediaData.message ||
+              `Impossible d'importer la photo ${localImage.name}.`
+          );
+        }
+      }
+
+      setImportMessage(
+        `✅ "${selectedPlace.name}" a été importé avec succès.`
+      );
+
+      setSelectedPlace(null);
+      setSelectedImages([]);
+      setLocalImages([]);
+    } catch (error) {
+      console.error("Erreur import :", error);
+
+      setImportMessage(
+        `❌ ${
+          error.message ||
+          "Une erreur est survenue pendant l'import."
+        }`
+      );
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      localImages.forEach((image) => {
+        URL.revokeObjectURL(image.url);
+      });
+    };
+  }, [localImages]);
+
+  return (
+    <div className="mx-auto max-w-4xl">
+      <h1 className="adm-h1">Lieux touristiques</h1>
+      <p className="adm-sub">Rechercher un lieu touristique à Madagascar.</p>
+
+      {/* Recherche */}
+      <form
+        onSubmit={handleSearch}
+        className="mt-6 flex flex-col gap-3 sm:flex-row"
+      >
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Ex. Allée des Baobabs"
+          className="adm-input"
+        />
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="adm-btn w-full sm:w-auto"
+        >
+          {loading ? "Recherche..." : "Rechercher"}
+        </button>
+      </form>
+
+      {/* Message import */}
+      {importMessage && <div className="adm-note mt-6">{importMessage}</div>}
+
+      {/* Résultats */}
+      <div className="mt-8 space-y-5">
+        {results.map((place) => {
+          const isSelected =
+            selectedPlace?.osmType === place.osmType &&
+            selectedPlace?.osmId === place.osmId;
+
+          return (
+            <div
+              key={`${place.osmType}-${place.osmId}`}
+              className={`overflow-hidden rounded-xl border bg-slate-900 ${
+                isSelected
+                  ? "border-emerald-500 ring-1 ring-emerald-500/40"
+                  : "border-slate-800"
+              }`}
+            >
+              {/* Informations du lieu */}
+              <div className="p-4 sm:p-5">
+                <h2 className="adm-h2 text-lg">{place.name}</h2>
+
+                <p className="mt-1 text-sm text-slate-400">{place.address}</p>
+
+                <p className="mt-2 font-mono text-xs text-slate-500">
+                  {place.latitude}, {place.longitude}
+                </p>
+
+                {place.wikipedia?.description && (
+                  <p className="mt-4 text-sm leading-relaxed text-slate-300">
+                    {place.wikipedia.description}
+                  </p>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => handleSelectPlace(place)}
+                  className={`mt-5 w-full sm:w-auto ${
+                    isSelected ? "adm-btn-ok !px-5 !py-2.5" : "adm-btn"
+                  }`}
+                >
+                  {isSelected ? "Lieu sélectionné" : "Sélectionner ce lieu"}
+                </button>
+              </div>
+
+              {/* Zone de sélection */}
+              {isSelected && (
+                <div className="border-t border-slate-800 bg-slate-950/60 p-4 sm:p-5">
+                  <h3 className="adm-h2">Photos du lieu</h3>
+
+                  {/* Photos Internet */}
+                  <div className="mt-5">
+                    <h4 className="text-sm font-medium text-slate-200">
+                      Photos disponibles sur Internet
+                    </h4>
+
+                    {place.images?.length > 0 ? (
+                      <>
+                        <p className="mb-4 mt-1 text-sm text-slate-400">
+                          Sélectionne les photos que tu souhaites importer.
+                        </p>
+
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          {place.images.map((image, index) => {
+                            const checked = selectedImages.some(
+                              (selected) => selected.url === image.url
+                            );
+
+                            return (
+                              <button
+                                type="button"
+                                key={image.url}
+                                onClick={() => toggleImage(image)}
+                                className={`overflow-hidden rounded-lg border-2 bg-slate-900 text-left ${
+                                  checked
+                                    ? "border-emerald-500"
+                                    : "border-slate-800"
+                                }`}
+                              >
+                                <img
+                                  src={image.url}
+                                  alt={image.title}
+                                  className="h-52 w-full object-cover"
+                                />
+
+                                <div className="p-3">
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      readOnly
+                                      className="accent-emerald-500"
+                                    />
+
+                                    <span className="text-sm font-medium text-slate-100">
+                                      Photo {index + 1}
+                                    </span>
+                                  </div>
+
+                                  <p className="mt-1 text-xs text-slate-400">
+                                    {image.title.replace(/^Fichier:/, "")}
+                                  </p>
+
+                                  {image.license && (
+                                    <p className="mt-2 text-xs text-slate-500">
+                                      Licence : {image.license}
+                                    </p>
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </>
+                    ) : (
+                      <p className="mt-2 text-sm text-slate-500">
+                        Aucune photo disponible depuis cette source.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Photos locales */}
+                  <div className="mt-8">
+                    <h4 className="text-sm font-medium text-slate-200">
+                      Photos depuis l&apos;appareil
+                    </h4>
+
+                    <p className="mt-1 text-sm text-slate-400">
+                      Ajoute tes propres photos si nécessaire.
+                    </p>
+
+                    <label className="adm-btn-ghost mt-4 w-full cursor-pointer !py-2.5 sm:w-auto">
+                      + Ajouter des photos
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleLocalImages}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {localImages.length > 0 && (
+                      <div className="mt-5">
+                        <p className="mb-3 text-sm font-medium text-slate-200">
+                          Photos locales ajoutées : {localImages.length}
+                        </p>
+
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          {localImages.map((image) => (
+                            <div
+                              key={image.id}
+                              className="overflow-hidden rounded-lg border border-slate-800 bg-slate-900"
+                            >
+                              <img
+                                src={image.url}
+                                alt={image.name}
+                                className="h-52 w-full object-cover"
+                              />
+
+                              <div className="flex items-center justify-between gap-3 p-3">
+                                <p className="truncate text-sm text-slate-300">
+                                  {image.name}
+                                </p>
+
+                                <button
+                                  type="button"
+                                  onClick={() => removeLocalImage(image.id)}
+                                  className="adm-btn-danger shrink-0"
+                                >
+                                  Retirer
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Import */}
+                  {(selectedImages.length > 0 || localImages.length > 0) && (
+                    <div className="adm-card mt-8">
+                      <h3 className="adm-h2">Prêt à importer</h3>
+
+                      <p className="mt-2 text-sm text-slate-200">
+                        <strong>{place.name}</strong>
+                      </p>
+
+                      <p className="mt-1 text-sm text-slate-400">
+                        {selectedImages.length} photo
+                        {selectedImages.length > 1 ? "s" : ""} Internet +{" "}
+                        {localImages.length} photo
+                        {localImages.length > 1 ? "s" : ""} locale
+                        {localImages.length > 1 ? "s" : ""}
+                      </p>
+
+                      <button
+                        type="button"
+                        onClick={handleImport}
+                        disabled={importing}
+                        className="adm-btn mt-4 w-full sm:w-auto"
+                      >
+                        {importing
+                          ? "Importation en cours..."
+                          : "Importer ce lieu"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\circuits\page.jsx ==========
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import PageBackground from "@/components/PageBackground";
+import { api } from "../../lib/api";
+
+export default function CircuitsPage() {
+  const [circuits, setCircuits] = useState([]);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        setCircuits(await api.get("/circuits"));
+      } catch (e) {
+        setError(e.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    load();
+  }, []);
+
+  return (
+    <>
+      <PageBackground name="circuits" />
+
+      <div className="space-y-6 py-4">
+        <div className="space-y-2">
+          <p className="eyebrow">Catalogue</p>
+          <h1 className="hero-title">Nos circuits</h1>
+          <p className="max-w-md text-white/80">
+            Touchez un circuit pour en voir le détail.
+          </p>
+        </div>
+
+        {error && <div className="glass p-4 text-sm text-red-100">{error}</div>}
+
+        {loading ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="glass h-36 animate-pulse" />
+            ))}
+          </div>
+        ) : circuits.length === 0 && !error ? (
+          <div className="glass p-6 text-center text-white/80">
+            Aucun circuit pour l&apos;instant.
+          </div>
+        ) : (
+          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {circuits.map((c) => (
+              <li key={c.id}>
+                <Link
+                  href={`/circuits/${c.id}`}
+                  className="glass flex h-full flex-col gap-3 p-5 transition hover:-translate-y-0.5 hover:bg-white/15"
+                >
+                  {c.tourist_places?.name && (
+                    <span className="chip self-start">
+                      {c.tourist_places.name}
+                    </span>
+                  )}
+
+                  <h2 className="font-serif text-xl font-semibold leading-snug">
+                    {c.title}
+                  </h2>
+
+                  {c.description && (
+                    <p className="line-clamp-3 text-sm text-white/80">
+                      {c.description}
+                    </p>
+                  )}
+
+                  <div className="mt-auto flex items-center justify-between pt-2">
+                    <span className="font-semibold text-or-clair">
+                      {Number(c.price).toLocaleString("fr-FR")} Ar
+                    </span>
+                    <span className="text-sm text-white/80">
+                      Voir le circuit →
+                    </span>
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\circuits\[id]\page.jsx ==========
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import PageBackground from "@/components/PageBackground";
+import { api } from "../../../lib/api";
+
+export default function CircuitDetailPage() {
+  const { id } = useParams();
+
+  const [circuit, setCircuit] = useState(null);
+  const [media, setMedia] = useState([]);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const [c, m] = await Promise.all([
+          api.get(`/circuits/${id}`),
+          api.get(`/media/circuit/${id}`),
+        ]);
+        setCircuit(c);
+        setMedia(Array.isArray(m) ? m : []);
+      } catch (e) {
+        setError(e.message);
+      }
+    }
+
+    if (id) load();
+  }, [id]);
+
+  const places = (circuit?.circuit_places || [])
+    .map((cp) => cp.tourist_places)
+    .filter(Boolean);
+  const hotels = (circuit?.circuit_hotels || [])
+    .map((ch) => ch.hotels)
+    .filter(Boolean);
+
+  return (
+    <>
+      <PageBackground name="circuits" />
+
+      <div className="mx-auto max-w-3xl space-y-6 py-4">
+        <Link href="/circuits" className="chip transition hover:bg-white/20">
+          ← Tous les circuits
+        </Link>
+
+        {error && <div className="glass p-4 text-sm text-red-100">{error}</div>}
+
+        {!circuit && !error && (
+          <div className="glass h-48 animate-pulse" />
+        )}
+
+        {circuit && (
+          <>
+            <div className="space-y-3">
+              <p className="eyebrow">Circuit</p>
+              <h1 className="hero-title !text-4xl sm:!text-5xl">
+                {circuit.title}
+              </h1>
+              <p className="font-serif text-2xl font-semibold text-or-clair">
+                {Number(circuit.price).toLocaleString("fr-FR")} Ar
+              </p>
+            </div>
+
+            {circuit.description && (
+              <section className="glass p-5 sm:p-6">
+                <p className="whitespace-pre-line leading-relaxed text-white/90">
+                  {circuit.description}
+                </p>
+              </section>
+            )}
+
+            {media.length > 0 && (
+              <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {media.map((m) => (
+                  <div
+                    key={m.id}
+                    className="glass overflow-hidden !rounded-2xl"
+                  >
+                    {m.type === "photo" ? (
+                      <img
+                        src={m.url}
+                        alt={m.alt_text || circuit.title}
+                        className="h-40 w-full object-cover"
+                      />
+                    ) : (
+                      <video
+                        src={m.url}
+                        className="h-40 w-full object-cover"
+                        controls
+                      />
+                    )}
+                  </div>
+                ))}
+              </section>
+            )}
+
+            {places.length > 0 && (
+              <section className="glass space-y-3 p-5 sm:p-6">
+                <p className="eyebrow">Étapes</p>
+                <ul className="flex flex-wrap gap-2">
+                  {places.map((p) => (
+                    <li key={p.id} className="chip !px-4 !py-1.5 !text-sm">
+                      {p.name}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {hotels.length > 0 && (
+              <section className="glass space-y-3 p-5 sm:p-6">
+                <p className="eyebrow">Hébergements</p>
+                <ul className="space-y-2">
+                  {hotels.map((h) => (
+                    <li key={h.id}>
+                      <p className="font-semibold">{h.name}</p>
+                      {h.address && (
+                        <p className="text-sm text-white/70">{h.address}</p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\feed\page.jsx ==========
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+
+import PageBackground from "@/components/PageBackground";
+import { api } from "../../lib/api";
+
+/* =========================================================
+   SQUELETTE
+   ========================================================= */
+
+function FeedSkeleton() {
+  return (
+    <article className="glass animate-pulse space-y-4 p-3">
+      <div className="h-[340px] w-full rounded-2xl bg-white/10 sm:h-[420px]" />
+      <div className="space-y-2 px-2 pb-2">
+        <div className="h-4 w-1/3 rounded bg-white/10" />
+        <div className="h-3 w-full rounded bg-white/10" />
+        <div className="h-3 w-3/4 rounded bg-white/10" />
+      </div>
+    </article>
+  );
+}
+
+/* =========================================================
+   ÉTOILES
+   ========================================================= */
+
+function RatingDisplay({ rating = null }) {
+  const value = typeof rating === "number" ? rating : null;
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex items-center gap-0.5 text-sm">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <span
+            key={star}
+            className={
+              value !== null && star <= Math.round(value)
+                ? "text-or-clair"
+                : "text-white/25"
+            }
+          >
+            ★
+          </span>
+        ))}
+      </div>
+
+      <span className="text-xs text-white/70">
+        {value !== null ? `${value.toFixed(1)}/5` : "Pas encore noté"}
+      </span>
+    </div>
+  );
+}
+
+/* =========================================================
+   CAROUSEL
+   ========================================================= */
+
+function PhotoCarousel({ place, media }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const carouselRef = useRef(null);
+
+  if (!media || media.length === 0) {
+    return (
+      <div className="flex h-[260px] w-full items-center justify-center rounded-2xl bg-white/5 text-center text-white/60 sm:h-[320px]">
+        <div>
+          <svg
+            viewBox="0 0 24 24"
+            width="36"
+            height="36"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="mx-auto mb-2"
+            aria-hidden="true"
+          >
+            <rect x="3" y="5" width="18" height="14" rx="3" />
+            <circle cx="9" cy="11" r="2" />
+            <path d="M21 16l-5-5-8 8" />
+          </svg>
+          <p className="text-sm">Pas encore de photo</p>
+        </div>
+      </div>
+    );
+  }
+
+  function handleScroll() {
+    const carousel = carouselRef.current;
+
+    if (!carousel) return;
+
+    const slideWidth = carousel.clientWidth;
+    const index = Math.round(carousel.scrollLeft / slideWidth);
+
+    setActiveIndex(index);
+  }
+
+  return (
+    <div className="relative">
+      <div
+        ref={carouselRef}
+        onScroll={handleScroll}
+        className="scrollbar-hide flex snap-x snap-mandatory gap-2 overflow-x-auto scroll-smooth rounded-2xl"
+      >
+        {media.map((item, index) => {
+          const caption = index === 0 ? place.name : item.caption || "";
+
+          return (
+            <div
+              key={item.id}
+              className="relative w-full flex-none snap-center snap-always"
+            >
+              {item.type === "photo" ? (
+                <img
+                  src={item.url}
+                  alt={item.alt_text || place.name}
+                  className="h-[340px] w-full object-cover sm:h-[420px]"
+                />
+              ) : (
+                <video
+                  src={item.url}
+                  className="h-[340px] w-full object-cover sm:h-[420px]"
+                  controls
+                />
+              )}
+
+              {/* Légende sur dégradé */}
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-emeraude-950/90 via-emeraude-950/40 to-transparent p-4 pt-16">
+                <p className="font-serif text-lg font-semibold text-white drop-shadow">
+                  {caption}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Points flottants */}
+      {media.length > 1 && (
+        <div className="absolute inset-x-0 top-3 flex justify-center">
+          <div className="flex gap-1.5 rounded-full bg-black/30 px-2.5 py-1.5 backdrop-blur">
+            {media.map((item, index) => (
+              <span
+                key={item.id}
+                className={`h-1.5 rounded-full transition-all ${
+                  index === activeIndex ? "w-4 bg-or-clair" : "w-1.5 bg-white/50"
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* =========================================================
+   POST
+   ========================================================= */
+
+function FeedPost({ place, media }) {
+  const router = useRouter();
+
+  function openMap() {
+    router.push(
+      `/map?lat=${encodeURIComponent(
+        place.latitude
+      )}&lng=${encodeURIComponent(
+        place.longitude
+      )}&place=${encodeURIComponent(place.name)}`
+    );
+  }
+
+  function openComments() {
+    router.push(`/tourist-places/${place.id}/comments`);
+  }
+
+  function openDetails() {
+    router.push(`/tourist-places/${place.id}`);
+  }
+
+  return (
+    <article className="glass space-y-4 p-3">
+      <PhotoCarousel place={place} media={media} />
+
+      <div className="space-y-3 px-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={openMap}
+            className="chip transition hover:bg-white/20"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="mr-1.5"
+              aria-hidden="true"
+            >
+              <path d="M12 21s-7-6.2-7-11a7 7 0 1 1 14 0c0 4.8-7 11-7 11z" />
+              <circle cx="12" cy="10" r="2.5" />
+            </svg>
+            Localisation
+          </button>
+
+          <RatingDisplay rating={place.rating} />
+        </div>
+
+        {place.description && (
+          <p className="line-clamp-4 text-sm leading-relaxed text-white/80">
+            {place.description}
+          </p>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between gap-3 border-t border-white/15 px-2 pb-1 pt-3">
+        <button
+          type="button"
+          onClick={openComments}
+          className="text-sm text-white/80 transition hover:text-white"
+        >
+          Commentaires
+        </button>
+
+        <button type="button" onClick={openDetails} className="btn-gold !px-5 !py-2">
+          Voir plus
+        </button>
+      </div>
+    </article>
+  );
+}
+
+/* =========================================================
+   FEED
+   ========================================================= */
+
+export default function FeedPage() {
+  const [places, setPlaces] = useState([]);
+  const [mediaByPlace, setMediaByPlace] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const list = await api.get("/tourist-places");
+
+        const placesList = Array.isArray(list) ? list : [];
+
+        setPlaces(placesList);
+
+        if (placesList.length > 0) {
+          const entries = await Promise.all(
+            placesList.map(async (place) => {
+              try {
+                const media = await api.get(
+                  `/media/tourist_place/${place.id}`
+                );
+
+                return [
+                  place.id,
+                  Array.isArray(media)
+                    ? media.sort(
+                        (a, b) =>
+                          (a.sort_order || 1) - (b.sort_order || 1)
+                      )
+                    : [],
+                ];
+              } catch {
+                return [place.id, []];
+              }
+            })
+          );
+
+          setMediaByPlace(Object.fromEntries(entries));
+        }
+      } catch (e) {
+        setError(e.message || "Impossible de charger le feed.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    load();
+  }, []);
+
+  return (
+    <>
+      <PageBackground name="feed" />
+
+      <div className="mx-auto max-w-xl space-y-6 py-4">
+        <div className="space-y-2">
+          <p className="eyebrow">Découvrir</p>
+          <h1 className="hero-title !text-4xl sm:!text-5xl">Le feed</h1>
+          <p className="text-white/80">
+            Les plus beaux lieux de l&apos;île, au fil de vos doigts.
+          </p>
+        </div>
+
+        {error && <div className="glass p-4 text-sm text-red-100">{error}</div>}
+
+        <div className="space-y-6">
+          {loading &&
+            [0, 1, 2].map((i) => <FeedSkeleton key={`loading-${i}`} />)}
+
+          {!loading &&
+            places.map((place) => (
+              <FeedPost
+                key={place.id}
+                place={place}
+                media={mediaByPlace[place.id] || []}
+              />
+            ))}
+
+          {!loading && places.length === 0 && !error && (
+            <div className="glass p-6 text-center text-white/80">
+              Aucun lieu pour l&apos;instant.
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\hotels\page.jsx ==========
+"use client";
+
+import { useEffect, useState } from "react";
+import PageBackground from "@/components/PageBackground";
+import { api } from "../../lib/api";
+
+export default function HotelsPage() {
+  const [hotels, setHotels] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    async function load() {
+      try {
+        setHotels(await api.get("/hotels"));
+      } catch (e) {
+        setError(e.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    load();
+  }, []);
+
+  return (
+    <>
+      <PageBackground name="hotels" />
+
+      <div className="space-y-6 py-4">
+        <div className="space-y-2">
+          <p className="eyebrow">Séjourner</p>
+          <h1 className="hero-title">Nos hôtels</h1>
+          <p className="max-w-md text-white/80">
+            Des adresses choisies, au cœur de la nature.
+          </p>
+        </div>
+
+        {error && <div className="glass p-4 text-sm text-red-100">{error}</div>}
+
+        {loading ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="glass h-28 animate-pulse" />
+            ))}
+          </div>
+        ) : hotels.length === 0 && !error ? (
+          <div className="glass p-6 text-center text-white/80">
+            Aucun hôtel pour l&apos;instant.
+          </div>
+        ) : (
+          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {hotels.map((h) => (
+              <li key={h.id} className="glass flex flex-col gap-2 p-5">
+                <h2 className="font-serif text-xl font-semibold leading-snug">
+                  {h.name}
+                </h2>
+                <p className="flex items-start gap-2 text-sm text-white/80">
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="16"
+                    height="16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="mt-0.5 flex-none text-or-clair"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 21s-7-6.2-7-11a7 7 0 1 1 14 0c0 4.8-7 11-7 11z" />
+                    <circle cx="12" cy="10" r="2.5" />
+                  </svg>
+                  {h.address}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\login\page.jsx ==========
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+import PageBackground from "@/components/PageBackground";
+
+export default function LoginPage() {
+  const router = useRouter();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleLogin(event) {
+    event.preventDefault();
+
+    setError("");
+    setLoading(true);
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+      return;
+    }
+
+    router.push("/");
+    router.refresh();
+  }
+
+  return (
+    <>
+      <PageBackground name="login" />
+
+      <div className="flex min-h-[calc(100svh-9rem)] items-center justify-center">
+        <form
+          onSubmit={handleLogin}
+          className="glass w-full max-w-md space-y-5 p-6 sm:p-8"
+        >
+          <div className="space-y-1">
+            <p className="eyebrow">Bienvenue</p>
+            <h1 className="font-serif text-3xl font-bold">Connexion</h1>
+            <p className="text-sm text-white/75">
+              Connecte-toi à ton compte.
+            </p>
+          </div>
+
+          <div>
+            <label
+              htmlFor="email"
+              className="mb-1.5 block text-sm font-medium text-white/90"
+            >
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+              className="input-glass"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="password"
+              className="mb-1.5 block text-sm font-medium text-white/90"
+            >
+              Mot de passe
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+              className="input-glass"
+            />
+          </div>
+
+          {error && (
+            <p className="rounded-2xl border border-red-300/40 bg-red-500/20 p-3 text-sm text-red-100">
+              {error}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="btn-gold w-full disabled:opacity-60"
+          >
+            {loading ? "Connexion..." : "Se connecter"}
+          </button>
+        </form>
+      </div>
+    </>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\map\page.jsx ==========
+"use client";
+
+import { Suspense } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import PageBackground from "@/components/PageBackground";
+
+function MapView() {
+  const params = useSearchParams();
+  const lat = parseFloat(params.get("lat"));
+  const lng = parseFloat(params.get("lng"));
+  const name = params.get("place") || "Lieu";
+  const valid = Number.isFinite(lat) && Number.isFinite(lng);
+
+  const d = 0.05;
+  const src = valid
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${lng - d}%2C${lat - d}%2C${lng + d}%2C${lat + d}&layer=mapnik&marker=${lat}%2C${lng}`
+    : "";
+
+  return (
+    <div className="mx-auto max-w-3xl space-y-5 py-4">
+      <Link href="/feed" className="chip transition hover:bg-white/20">
+        ← Retour au feed
+      </Link>
+
+      <div className="space-y-2">
+        <p className="eyebrow">Localisation</p>
+        <h1 className="hero-title !text-4xl">{name}</h1>
+      </div>
+
+      {valid ? (
+        <div className="glass overflow-hidden !rounded-3xl p-2">
+          <iframe
+            title={`Carte : ${name}`}
+            src={src}
+            className="h-[60svh] w-full rounded-2xl border-0"
+            loading="lazy"
+          />
+        </div>
+      ) : (
+        <div className="glass p-6 text-center text-white/80">
+          Coordonnées manquantes.
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function MapPage() {
+  return (
+    <>
+      <PageBackground name="lieux" />
+      <Suspense fallback={<div className="glass h-48 animate-pulse" />}>
+        <MapView />
+      </Suspense>
+    </>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\test-auth\page.jsx ==========
+"use client";
+
+import { useEffect, useState } from "react";
+import { getCurrentUser, getCurrentRole } from "@/lib/auth";
+
+export default function TestAuth() {
+  const [user, setUser] = useState(null);
+  const [role, setRole] = useState(null);
+
+  useEffect(() => {
+    async function load() {
+      setUser(await getCurrentUser());
+      setRole(await getCurrentRole());
+    }
+
+    load();
+  }, []);
+
+  return (
+    <main className="p-8">
+      <h1 className="text-2xl font-bold">Test Auth</h1>
+
+      <p className="mt-4">
+        Email : {user?.email || "Non connecté"}
+      </p>
+
+      <p>
+        Rôle : {role || "Chargement..."}
+      </p>
+    </main>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\test-auth-backend\page.jsx ==========
+"use client";
+
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+
+export default function TestAuthBackend() {
+  const [result, setResult] = useState(null);
+
+  useEffect(() => {
+    async function test() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        setResult({ error: "Aucune session Supabase." });
+        return;
+      }
+
+      const response = await fetch(
+        "http://localhost:5000/api/place-search/import",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            name: "Allée des Baobabs",
+            description:
+              "L’allée des baobabs ou avenue des baobabs est un groupe de baobabs dans la région de Menabe à Madagascar.",
+            latitude: -20.2503296,
+            longitude: 44.4192658,
+            source_url:
+              "https://fr.wikipedia.org/wiki/All%C3%A9e_des_baobabs",
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      setResult({
+        status: response.status,
+        data,
+      });
+    }
+
+    test();
+  }, []);
+
+  return (
+    <main className="p-8">
+      <h1 className="text-2xl font-bold">Test Import Backend</h1>
+
+      <pre className="mt-4 rounded bg-gray-100 p-4">
+        {JSON.stringify(result, null, 2)}
+      </pre>
+    </main>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\tourist-places\page.jsx ==========
+"use client";
+
+import { useEffect, useState } from "react";
+import PageBackground from "@/components/PageBackground";
+import { api } from "../../lib/api";
+
+export default function TouristPlacesPage() {
+  const [places, setPlaces] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    async function load() {
+      try {
+        setPlaces(await api.get("/tourist-places"));
+      } catch (e) {
+        setError(e.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    load();
+  }, []);
+
+  return (
+    <>
+      <PageBackground name="lieux" />
+
+      <div className="space-y-6 py-4">
+        <div className="space-y-2">
+          <p className="eyebrow">Destinations</p>
+          <h1 className="hero-title">Lieux à découvrir</h1>
+          <p className="max-w-md text-white/80">
+            Parcs, forêts, plages et merveilles de Madagascar.
+          </p>
+        </div>
+
+        {error && <div className="glass p-4 text-sm text-red-100">{error}</div>}
+
+        {loading ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="glass h-40 animate-pulse" />
+            ))}
+          </div>
+        ) : places.length === 0 && !error ? (
+          <div className="glass p-6 text-center text-white/80">
+            Aucun lieu pour l&apos;instant.
+          </div>
+        ) : (
+          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {places.map((p) => (
+              <li key={p.id} className="glass flex flex-col gap-3 p-5">
+                <h2 className="font-serif text-xl font-semibold leading-snug">
+                  {p.name}
+                </h2>
+
+                {p.description && (
+                  <p className="line-clamp-4 text-sm text-white/80">
+                    {p.description}
+                  </p>
+                )}
+
+                <p className="mt-auto pt-2 font-mono text-xs text-or-clair">
+                  {p.latitude}, {p.longitude}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\tourist-places\new\page.jsx ==========
+import { redirect } from "next/navigation";
+
+// L'ajout de lieux se fait désormais depuis l'administration.
+export default function NewTouristPlacePage() {
+  redirect("/admin/places");
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\app\tourist-places\[id]\page.jsx ==========
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import PageBackground from "@/components/PageBackground";
+import { api } from "../../../lib/api";
+
+export default function TouristPlaceDetailPage() {
+  const { id } = useParams();
+
+  const [place, setPlace] = useState(null);
+  const [media, setMedia] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    async function load() {
+      try {
+        // On réutilise la liste déjà exposée par l'API et on cherche le lieu.
+        const [list, m] = await Promise.all([
+          api.get("/tourist-places"),
+          api.get(`/media/tourist_place/${id}`),
+        ]);
+        setPlace((Array.isArray(list) ? list : []).find((p) => p.id === id) || null);
+        setMedia(
+          Array.isArray(m)
+            ? m.sort((a, b) => (a.sort_order || 1) - (b.sort_order || 1))
+            : []
+        );
+      } catch (e) {
+        setError(e.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (id) load();
+  }, [id]);
+
+  return (
+    <>
+      <PageBackground name="lieux" />
+
+      <div className="mx-auto max-w-3xl space-y-6 py-4">
+        <Link href="/feed" className="chip transition hover:bg-white/20">
+          ← Retour au feed
+        </Link>
+
+        {error && <div className="glass p-4 text-sm text-red-100">{error}</div>}
+
+        {loading && <div className="glass h-48 animate-pulse" />}
+
+        {!loading && !place && !error && (
+          <div className="glass p-6 text-center text-white/80">
+            Lieu introuvable.
+          </div>
+        )}
+
+        {place && (
+          <>
+            <div className="space-y-3">
+              <p className="eyebrow">Lieu</p>
+              <h1 className="hero-title !text-4xl sm:!text-5xl">{place.name}</h1>
+              <Link
+                href={`/map?lat=${encodeURIComponent(
+                  place.latitude
+                )}&lng=${encodeURIComponent(
+                  place.longitude
+                )}&place=${encodeURIComponent(place.name)}`}
+                className="btn-glass"
+              >
+                Voir sur la carte
+              </Link>
+            </div>
+
+            {media.length > 0 && (
+              <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {media.map((m, i) => (
+                  <div
+                    key={m.id}
+                    className={`glass overflow-hidden !rounded-2xl ${
+                      i === 0 ? "col-span-2 sm:col-span-3" : ""
+                    }`}
+                  >
+                    {m.type === "photo" ? (
+                      <img
+                        src={m.url}
+                        alt={m.alt_text || place.name}
+                        className={`w-full object-cover ${
+                          i === 0 ? "h-64 sm:h-96" : "h-40"
+                        }`}
+                      />
+                    ) : (
+                      <video
+                        src={m.url}
+                        className="h-40 w-full object-cover"
+                        controls
+                      />
+                    )}
+                  </div>
+                ))}
+              </section>
+            )}
+
+            {place.description && (
+              <section className="glass p-5 sm:p-6">
+                <p className="whitespace-pre-line leading-relaxed text-white/90">
+                  {place.description}
+                </p>
+                {place.source_url && (
+                  <p className="mt-4 text-xs text-white/60">
+                    Source :{" "}
+                    <a
+                      href={place.source_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline"
+                    >
+                      {place.source_url}
+                    </a>
+                  </p>
+                )}
+              </section>
+            )}
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\components\AdminSidebar.jsx ==========
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+const links = [
+  { label: "Dashboard", href: "/admin" },
+  { label: "Lieux touristiques", href: "/admin/places" },
+  { label: "Circuits", href: "/admin/circuits" },
+  { label: "Hôtels", href: "/admin/hotels" },
+  { label: "Commentaires", href: "/admin/comments" },
+];
+
+export default function AdminSidebar() {
+  const pathname = usePathname();
+
+  return (
+    <aside className="fixed left-0 top-0 h-screen w-64 border-r bg-white p-5">
+      <div className="mb-8">
+        <h1 className="text-xl font-bold">Madagascar Tour</h1>
+        <p className="text-sm text-gray-500">Administration</p>
+      </div>
+
+      <nav className="space-y-2">
+        {links.map((link) => {
+          const active = pathname === link.href;
+
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`block rounded-lg px-4 py-3 text-sm font-medium ${
+                active
+                  ? "bg-green-100 text-green-800"
+                  : "text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              {link.label}
+            </Link>
+          );
+        })}
+      </nav>
+    </aside>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\components\Nav.jsx ==========
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+function Icon({ children }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="22"
+      height="22"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+const links = [
+  {
+    href: "/feed",
+    label: "Feed",
+    icon: (
+      <Icon>
+        <rect x="3" y="3" width="7" height="7" rx="1.5" />
+        <rect x="14" y="3" width="7" height="7" rx="1.5" />
+        <rect x="3" y="14" width="7" height="7" rx="1.5" />
+        <rect x="14" y="14" width="7" height="7" rx="1.5" />
+      </Icon>
+    ),
+  },
+  {
+    href: "/circuits",
+    label: "Circuits",
+    icon: (
+      <Icon>
+        <path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z" />
+        <path d="M9 4v14M15 6v14" />
+      </Icon>
+    ),
+  },
+  {
+    href: "/tourist-places",
+    label: "Lieux",
+    icon: (
+      <Icon>
+        <path d="M12 21s-7-6.2-7-11a7 7 0 1 1 14 0c0 4.8-7 11-7 11z" />
+        <circle cx="12" cy="10" r="2.5" />
+      </Icon>
+    ),
+  },
+  {
+    href: "/hotels",
+    label: "Hôtels",
+    icon: (
+      <Icon>
+        <path d="M3 20V8M21 20v-6a3 3 0 0 0-3-3h-7v5M3 16h18" />
+        <circle cx="7" cy="12" r="1.8" />
+      </Icon>
+    ),
+  },
+];
+
+export default function Nav() {
+  const pathname = usePathname();
+
+  // L'admin a sa propre barre latérale : on n'affiche pas la navigation publique
+  if (pathname?.startsWith("/admin")) return null;
+
+  return (
+    <>
+      {/* Barre du haut : marque + liens (liens visibles à partir de la tablette) */}
+      <header className="sticky top-0 z-20 border-b border-white/10 bg-emeraude-950/80 backdrop-blur-xl">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
+          <Link
+            href="/"
+            className="font-serif text-lg font-semibold text-white"
+          >
+            Madagascar <span className="text-or-clair">Tour</span>
+          </Link>
+
+          <nav className="hidden gap-1 sm:flex">
+            {links.map((l) => {
+              const active = pathname?.startsWith(l.href);
+              return (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                    active
+                      ? "bg-or text-emeraude-950"
+                      : "text-white/80 hover:bg-white/10"
+                  }`}
+                >
+                  {l.label}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+      </header>
+
+      {/* Barre du bas : mobile uniquement */}
+      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-emeraude-950/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl sm:hidden">
+        <ul className="grid grid-cols-4">
+          {links.map((l) => {
+            const active = pathname?.startsWith(l.href);
+            return (
+              <li key={l.href}>
+                <Link
+                  href={l.href}
+                  className={`flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors ${
+                    active ? "text-or-clair" : "text-white/70"
+                  }`}
+                >
+                  {l.icon}
+                  {l.label}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+    </>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\components\PageBackground.jsx ==========
+const BACKGROUNDS = {
+  jungle: "/bg/jungle.jpg",
+  feed: "/bg/feed.jpg",
+  circuits: "/bg/circuits.jpg",
+  hotels: "/bg/hotels.jpg",
+  lieux: "/bg/lieux.jpg",
+  login: "/bg/login.jpg",
+};
+
+export default function PageBackground({
+  name = "jungle",
+  position = "center",
+}) {
+  const src = BACKGROUNDS[name] || BACKGROUNDS.jungle;
+
+  return (
+    <div
+      aria-hidden="true"
+      className="bg-jungle-fallback fixed inset-0 -z-10"
+    >
+      <div
+        className="absolute inset-0 bg-cover"
+        style={{
+          backgroundImage: `url(${src})`,
+          backgroundPosition: position,
+        }}
+      />
+      <div className="bg-veil absolute inset-0" />
+    </div>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\components\Shell.jsx ==========
+"use client";
+
+import { usePathname } from "next/navigation";
+
+// Public : conteneur centré, marge basse pour la barre d'onglets mobile.
+// Admin : pleine largeur (l'admin gère sa propre mise en page).
+export default function Shell({ children }) {
+  const pathname = usePathname();
+
+  if (pathname?.startsWith("/admin")) {
+    return <main>{children}</main>;
+  }
+
+  return (
+    <main className="mx-auto w-full max-w-6xl px-4 pb-28 pt-4 sm:px-6 sm:pb-12 sm:pt-6">
+      {children}
+    </main>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\components\admin\AdminSidebar.jsx ==========
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+const links = [
+  { label: "Dashboard", href: "/admin" },
+  { label: "Lieux", href: "/admin/places" },
+  { label: "Circuits", href: "/admin/circuits" },
+  { label: "Hôtels", href: "/admin/hotels" },
+  { label: "Commentaires", href: "/admin/comments" },
+];
+
+export default function AdminSidebar() {
+  const pathname = usePathname();
+
+  function isActive(href) {
+    if (href === "/admin") return pathname === "/admin";
+    return pathname === href || pathname?.startsWith(href + "/");
+  }
+
+  return (
+    <>
+      {/* Navigation mobile */}
+      <header className="sticky top-0 z-50 border-b border-slate-800 bg-slate-900 lg:hidden">
+        <div className="flex items-baseline gap-2 px-4 py-3">
+          <h1 className="font-sans text-base font-semibold text-slate-50">
+            Madagascar Tour
+          </h1>
+          <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
+            Admin
+          </span>
+        </div>
+
+        <nav className="flex gap-1 overflow-x-auto border-t border-slate-800 px-3 py-2">
+          {links.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`shrink-0 rounded-md px-3 py-1.5 text-sm font-medium ${
+                isActive(link.href)
+                  ? "bg-emerald-500/15 text-emerald-300"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+      </header>
+
+      {/* Navigation desktop */}
+      <aside className="fixed left-0 top-0 hidden h-screen w-64 border-r border-slate-800 bg-slate-900 p-5 lg:block">
+        <div className="mb-8">
+          <h1 className="font-sans text-lg font-semibold text-slate-50">
+            Madagascar Tour
+          </h1>
+          <p className="mt-0.5 text-xs font-semibold uppercase tracking-wider text-emerald-400">
+            Administration
+          </p>
+        </div>
+
+        <nav className="space-y-1">
+          {links.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                isActive(link.href)
+                  ? "bg-emerald-500/15 text-emerald-300"
+                  : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+              }`}
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+      </aside>
+    </>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\lib\api.js ==========
+import { supabase } from "./supabase";
+
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+
+async function request(path, options = {}) {
+  const isFormData = options.body instanceof FormData;
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const headers = new Headers(options.headers || {});
+
+  if (!isFormData) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  if (session?.access_token) {
+    headers.set(
+      "Authorization",
+      `Bearer ${session.access_token}`
+    );
+  }
+
+  const res = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers,
+  });
+
+  if (!res.ok) {
+    let message = `Erreur ${res.status}`;
+
+    try {
+      const data = await res.json();
+      message = data.message || message;
+    } catch {
+      // pas de corps JSON
+    }
+
+    throw new Error(message);
+  }
+
+  if (res.status === 204) return null;
+
+  return res.json();
+}
+
+export const api = {
+  get: (path) => request(path),
+
+  post: (path, body) =>
+    request(path, {
+      method: "POST",
+      body:
+        body instanceof FormData
+          ? body
+          : JSON.stringify(body),
+    }),
+
+  put: (path, body) =>
+    request(path, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+
+  del: (path) =>
+    request(path, {
+      method: "DELETE",
+    }),
+};
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\lib\auth.js ==========
+import { supabase } from "./supabase";
+
+export async function getCurrentUser() {
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error) {
+    return null;
+  }
+
+  return user;
+}
+
+export async function getCurrentRole() {
+  const { data, error } = await supabase.rpc("get_my_role");
+
+  if (error) {
+    console.error(
+      "Erreur récupération rôle :",
+      JSON.stringify(error, null, 2)
+    );
+    return null;
+  }
+
+  return data;
+}
+
+export async function signOut() {
+  await supabase.auth.signOut();
+}
+
+========== C:\Users\Paradisa\ProjetLicense\frontend\src\lib\supabase.js ==========
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+export const supabase = createClient(
+  supabaseUrl,
+  supabaseAnonKey
+);
+
+========== C:\Users\Paradisa\ProjetLicense\pack_madagascar\OPTIONNEL_a_comparer_avant\frontend\src\components\admin\AdminSidebar.jsx ==========
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+const links = [
+  {
+    label: "Dashboard",
+    href: "/admin",
+  },
+  {
+    label: "Lieux touristiques",
+    href: "/admin/places",
+  },
+  {
+    label: "Circuits",
+    href: "/admin/circuits",
+  },
+  {
+    label: "Hôtels",
+    href: "/admin/hotels",
+  },
+  {
+    label: "Commentaires",
+    href: "/admin/comments",
+  },
+];
+
+export default function AdminSidebar() {
+  const pathname = usePathname();
+
+  return (
+    <>
+      <header className="sticky top-0 z-50 border-b bg-white lg:hidden">
+        <div className="px-4 py-3">
+          <h1 className="text-lg font-bold">
+            Madagascar Tour
+          </h1>
+
+          <p className="text-xs text-gray-500">
+            Administration
+          </p>
+        </div>
+
+        <nav className="flex gap-2 overflow-x-auto border-t px-4 py-2">
+          {links.map((link) => {
+            const active =
+              pathname === link.href;
+
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium ${
+                  active
+                    ? "bg-green-100 text-green-800"
+                    : "text-gray-600"
+                }`}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
+        </nav>
+      </header>
+
+      <aside className="fixed left-0 top-0 hidden h-screen w-64 border-r bg-white p-5 lg:block">
+        <div className="mb-8">
+          <h1 className="text-xl font-bold">
+            Madagascar Tour
+          </h1>
+
+          <p className="text-sm text-gray-500">
+            Administration
+          </p>
+        </div>
+
+        <nav className="space-y-2">
+          {links.map((link) => {
+            const active =
+              pathname === link.href;
+
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`block rounded-lg px-4 py-3 text-sm font-medium ${
+                  active
+                    ? "bg-green-100 text-green-800"
+                    : "text-gray-600 hover:bg-gray-100"
+                }`}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
+        </nav>
+      </aside>
+    </>
+  );
+}
+
+========== C:\Users\Paradisa\ProjetLicense\pack_madagascar\OPTIONNEL_a_comparer_avant\frontend\src\lib\api.js ==========
+import { supabase } from "./supabase";
+
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://localhost:5000/api";
+
+async function request(path, options = {}) {
+  const isFormData =
+    options.body instanceof FormData;
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const headers = new Headers(
+    options.headers || {}
+  );
+
+  if (!isFormData) {
+    headers.set(
+      "Content-Type",
+      "application/json"
+    );
+  }
+
+  if (session?.access_token) {
+    headers.set(
+      "Authorization",
+      `Bearer ${session.access_token}`
+    );
+  }
+
+  let res;
+
+  try {
+    res = await fetch(
+      `${API_URL}${path}`,
+      {
+        ...options,
+        headers,
+      }
+    );
+  } catch {
+    throw new Error(
+      "Impossible de contacter le serveur."
+    );
+  }
+
+  if (!res.ok) {
+    let message =
+      `Erreur ${res.status}`;
+
+    try {
+      const data = await res.json();
+      message =
+        data.message || message;
+    } catch {}
+
+    throw new Error(message);
+  }
+
+  if (res.status === 204) {
+    return null;
+  }
+
+  return res.json();
+}
+
+export const api = {
+  get: (path) =>
+    request(path),
+
+  post: (path, body) =>
+    request(path, {
+      method: "POST",
+      body:
+        body instanceof FormData
+          ? body
+          : JSON.stringify(body),
+    }),
+
+  put: (path, body) =>
+    request(path, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+
+  del: (path) =>
+    request(path, {
+      method: "DELETE",
+    }),
+};
+
+========== C:\Users\Paradisa\ProjetLicense\pack_madagascar\SQL_a_executer_dans_Supabase\comments_policies.sql ==========
+-- À exécuter dans Supabase > SQL Editor, SEULEMENT si tes policies
+-- sur "comments" ne sont pas déjà identiques à celles-ci.
+-- Prérequis : la fonction is_admin() doit déjà exister dans ta base.
+
+alter table public.comments enable row level security;
+
+drop policy if exists "Public can read approved comments"
+on public.comments;
+
+create policy "Public can read approved comments"
+on public.comments
+for select
+to anon, authenticated
+using (
+  status = 'approved'
+);
+
+drop policy if exists "Users can insert comments"
+on public.comments;
+
+create policy "Users can insert comments"
+on public.comments
+for insert
+to authenticated
+with check (
+  user_id = auth.uid()
+);
+
+drop policy if exists "Users can update own comments"
+on public.comments;
+
+create policy "Users can update own comments"
+on public.comments
+for update
+to authenticated
+using (
+  user_id = auth.uid()
+)
+with check (
+  user_id = auth.uid()
+);
+
+drop policy if exists "Users can delete own comments"
+on public.comments;
+
+create policy "Users can delete own comments"
+on public.comments
+for delete
+to authenticated
+using (
+  user_id = auth.uid()
+);
+
+drop policy if exists "Admins can manage comments"
+on public.comments;
+
+create policy "Admins can manage comments"
+on public.comments
+for all
+to authenticated
+using (
+  is_admin()
+)
+with check (
+  is_admin()
+);
+
+-- Contraintes d'unicité des tables de liaison (seulement si elles manquent ;
+-- si Supabase répond "already exists", ne touche à rien) :
+-- alter table public.circuit_places
+--   add constraint circuit_places_unique unique (circuit_id, tourist_place_id);
+-- alter table public.circuit_hotels
+--   add constraint circuit_hotels_unique unique (circuit_id, hotel_id);

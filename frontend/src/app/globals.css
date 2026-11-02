@@ -1,0 +1,319 @@
+@import "tailwindcss";
+
+@theme {
+  /* Palette existante (conservée pour ne rien casser) */
+  --color-paper: #f7f3ed;
+  --color-ink: #3d352f;
+  --color-line: #ddd4c8;
+  --color-terre: #8b5e3c;
+  --color-terre-dark: #6f472d;
+  --color-foret: #4f7f5f;
+  --color-foret-dark: #3f654c;
+  --color-or: #d9a441;
+
+  /* Nouvelle palette : vert royal / émeraude */
+  --color-emeraude-950: #04261b;
+  --color-emeraude-900: #063d2a;
+  --color-emeraude-800: #0a5a3c;
+  --color-emeraude-700: #0e7a4f;
+  --color-emeraude-500: #17b26a;
+  --color-emeraude-300: #6ee7b7;
+  --color-or-clair: #f2c660;
+
+  /* Polices (chargées dans layout.jsx) */
+  --font-serif: "Fraunces", Georgia, serif;
+  --font-sans: "DM Sans", "IBM Plex Sans", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+}
+
+@layer base {
+  body {
+    @apply bg-emeraude-950 text-white font-sans;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-serif;
+  }
+}
+
+@layer components {
+  /* ============================================================
+     ANCIENNES CLASSES (inchangées : les pages actuelles continuent
+     de fonctionner)
+     ============================================================ */
+  .card {
+    @apply bg-white border border-line rounded-xl p-5 shadow-sm;
+  }
+
+  .btn {
+    @apply text-sm font-medium px-4 py-2 rounded-lg transition-colors;
+  }
+
+  .btn-primary {
+    @apply text-sm font-medium px-4 py-2 rounded-lg transition-colors bg-terre text-white hover:bg-terre-dark;
+  }
+
+  .btn-secondary {
+    @apply text-sm font-medium px-4 py-2 rounded-lg transition-colors bg-ink text-white hover:opacity-90;
+  }
+
+  .btn-ghost {
+    @apply text-sm text-terre hover:text-terre-dark underline underline-offset-2;
+  }
+
+  .btn-danger-ghost {
+    @apply text-xs text-red-600 hover:text-red-700 underline underline-offset-2;
+  }
+
+  .input {
+    @apply w-full border border-line rounded-lg px-3 py-2 text-sm bg-white;
+    @apply focus:outline-none focus:ring-2 focus:ring-terre/25 focus:border-terre;
+  }
+
+  .label {
+    @apply block text-xs font-medium text-ink/50 mb-1;
+  }
+
+  .page-title {
+    @apply text-2xl font-serif font-semibold text-ink;
+  }
+
+  .section-title {
+    @apply text-xs font-mono text-terre mb-2;
+  }
+
+  .empty-state {
+    @apply text-sm text-ink/40 italic py-3 text-center;
+  }
+
+  /* ============================================================
+     NOUVEAU DESIGN : jungle émeraude + verre dépoli
+     (à utiliser sur les pages qui ont <PageBackground />)
+     ============================================================ */
+
+  /* Fond de secours : s'affiche tant que la photo n'existe pas */
+  .bg-jungle-fallback {
+    background:
+      radial-gradient(ellipse at 15% 10%, rgb(14 122 79 / 0.9), transparent 55%),
+      radial-gradient(ellipse at 90% 85%, rgb(23 178 106 / 0.35), transparent 50%),
+      #04261b;
+  }
+
+  /* Voile sombre au-dessus de la photo : garde le texte lisible */
+  .bg-veil {
+    background: linear-gradient(
+      to bottom,
+      rgb(4 38 27 / 0.55),
+      rgb(6 61 42 / 0.3) 45%,
+      rgb(4 38 27 / 0.88)
+    );
+  }
+
+  /* Carte flottante transparente */
+  .glass {
+    @apply rounded-3xl border border-white/20 bg-white/10 text-white shadow-xl shadow-black/20 backdrop-blur-md sm:backdrop-blur-xl;
+  }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass {
+      background: rgb(4 38 27 / 0.78);
+    }
+  }
+
+  /* Bouton principal doré */
+  .btn-gold {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-or px-6 py-3 text-sm font-semibold text-emeraude-950 shadow-lg shadow-black/25 transition hover:brightness-110 active:scale-95;
+    @apply focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-or-clair;
+  }
+
+  /* Bouton secondaire transparent */
+  .btn-glass {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-white/30 bg-white/15 px-5 py-2.5 text-sm font-medium text-white backdrop-blur transition hover:bg-white/25 active:scale-95;
+  }
+
+  /* Champ de saisie transparent */
+  .input-glass {
+    @apply w-full rounded-2xl border border-white/25 bg-white/10 px-4 py-3 text-sm text-white placeholder:text-white/60 backdrop-blur;
+    @apply focus:border-or focus:outline-none focus:ring-2 focus:ring-or/40;
+  }
+
+  /* Petite étiquette */
+  .chip {
+    @apply inline-flex items-center rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-medium text-white/90 backdrop-blur;
+  }
+
+  /* Sur-titre en capitales espacées */
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-[0.22em] text-or-clair;
+  }
+
+  /* Grand titre d'accueil */
+  .hero-title {
+    @apply font-serif text-4xl font-bold leading-[1.05] tracking-tight text-white sm:text-6xl;
+    text-shadow: 0 2px 28px rgb(0 0 0 / 0.7), 0 1px 3px rgb(0 0 0 / 0.5);
+  }
+}
+
+/* Masque la barre de défilement (carrousel du feed) */
+@utility scrollbar-hide {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ============================================================
+   ADMIN : thème sombre, sans image (classes préfixées adm-)
+   ============================================================ */
+@layer components {
+  .adm-card {
+    @apply rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5;
+  }
+  .adm-row {
+    @apply rounded-lg border border-slate-800 bg-slate-950/50 p-4;
+  }
+  .adm-h1 {
+    @apply font-sans text-2xl font-semibold tracking-tight text-slate-50;
+  }
+  .adm-h2 {
+    @apply font-sans text-base font-semibold text-slate-100;
+  }
+  .adm-sub {
+    @apply mt-1 text-sm text-slate-400;
+  }
+  .adm-label {
+    @apply mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-400;
+  }
+  .adm-input {
+    @apply w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500;
+    @apply focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/30;
+  }
+  .adm-btn {
+    @apply inline-flex items-center justify-center rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .adm-btn-ghost {
+    @apply inline-flex items-center justify-center rounded-lg border border-slate-700 px-3 py-2 text-sm font-medium text-slate-200 transition hover:bg-slate-800;
+  }
+  .adm-btn-ok {
+    @apply inline-flex items-center justify-center rounded-lg bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20;
+  }
+  .adm-btn-warn {
+    @apply inline-flex items-center justify-center rounded-lg bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-300 transition hover:bg-amber-500/20;
+  }
+  .adm-btn-danger {
+    @apply inline-flex items-center justify-center rounded-lg bg-red-500/10 px-3 py-2 text-sm font-medium text-red-300 transition hover:bg-red-500/20;
+  }
+  .adm-alert {
+    @apply rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200;
+  }
+  .adm-note {
+    @apply rounded-lg border border-slate-700 bg-slate-900 p-3 text-sm text-slate-200;
+  }
+  .adm-badge {
+    @apply inline-flex items-center rounded-md border border-slate-700 px-2 py-0.5 text-xs text-slate-300;
+  }
+  .adm-empty {
+    @apply py-10 text-center text-sm text-slate-500;
+  }
+}
+
+/* ============================================================
+   ACCUEIL : défilement de la mosaïque et navigation douce
+   ============================================================ */
+html {
+  scroll-behavior: smooth;
+}
+
+@keyframes mosaic-up {
+  from { transform: translateY(0); }
+  to { transform: translateY(-50%); }
+}
+
+@keyframes mosaic-down {
+  from { transform: translateY(-50%); }
+  to { transform: translateY(0); }
+}
+
+.mosaic-up {
+  animation: mosaic-up 70s linear infinite;
+  will-change: transform;
+}
+
+.mosaic-down {
+  animation: mosaic-down 70s linear infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .mosaic-up, .mosaic-down { animation: none; }
+}
+
+/* Leaflet : le reset de Tailwind casse les tuiles de la carte */
+.leaflet-container img {
+  max-width: none !important;
+}
+
+/* ============================================================
+   ADMIN : mode clair = on inverse le noir et le blanc.
+   Les classes Tailwind lisent ces variables : il suffit de les
+   redéfinir dans le conteneur. Le vert et le rouge sont gardés
+   (teintes plus foncées pour rester lisibles sur fond clair).
+   ============================================================ */
+[data-admin-theme="light"] {
+  --color-slate-50: #020617;
+  --color-slate-100: #0f172a;
+  --color-slate-200: #1e293b;
+  --color-slate-300: #334155;
+  --color-slate-400: #475569;
+  --color-slate-500: #64748b;
+  --color-slate-600: #94a3b8;
+  --color-slate-700: #cbd5e1;
+  --color-slate-800: #e2e8f0;
+  --color-slate-900: #ffffff;
+  --color-slate-950: #f1f5f9;
+
+  --color-emerald-200: #065f46;
+  --color-emerald-300: #047857;
+  --color-emerald-400: #059669;
+  --color-red-200: #991b1b;
+  --color-red-300: #b91c1c;
+  --color-amber-200: #92400e;
+  --color-amber-300: #b45309;
+
+  /* Couleurs des circuits dans le planning : plus foncées en thème clair */
+  --color-sky-200: #075985;
+  --color-fuchsia-200: #86198f;
+  --color-rose-200: #9f1239;
+  --color-teal-200: #115e59;
+  --color-violet-200: #5b21b6;
+  --color-lime-200: #3f6212;
+}
+
+/* ---------- Pop-ups (PopupProvider) ---------- */
+@keyframes popup-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes popup-pop {
+  from { opacity: 0; transform: translateY(14px) scale(0.94); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.popup-overlay {
+  animation: popup-fade 0.18s ease-out;
+}
+
+.popup-box {
+  animation: popup-pop 0.22s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popup-overlay,
+  .popup-box {
+    animation: none;
+  }
+}
