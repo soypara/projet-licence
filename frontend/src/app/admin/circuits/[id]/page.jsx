@@ -8,11 +8,13 @@ import { usePopup } from "@/components/PopupProvider";
 import MediaManager from "@/components/admin/MediaManager";
 import CircuitForm from "@/components/admin/CircuitForm";
 import { formFromCircuit, emptyCircuitForm, buildCircuitPayload } from "@/lib/circuitForm";
+import { useAT } from "@/components/admin/AdminLanguage";
 
 export default function CircuitDetailPage() {
   const params = useParams();
   const id = params.id;
   const { showPopup } = usePopup();
+  const { ta } = useAT();
 
   const [circuit, setCircuit] = useState(null);
   const [places, setPlaces] = useState([]);
@@ -45,7 +47,7 @@ export default function CircuitDetailPage() {
     } catch (err) {
       setError(
         err.message ||
-          "Impossible de charger le circuit."
+          ta("a.cir.manage_load_error")
       );
     } finally {
       setLoading(false);
@@ -61,12 +63,12 @@ export default function CircuitDetailPage() {
   async function handleSave(e) {
     e.preventDefault();
 
-    const built = buildCircuitPayload(form);
+    const built = buildCircuitPayload(form, ta);
 
     if (built.error) {
       showPopup({
         kind: "error",
-        title: "Formulaire incomplet",
+        title: ta("a.cir.list_incomplete_title"),
         message: built.error,
       });
       return;
@@ -85,14 +87,14 @@ export default function CircuitDetailPage() {
 
       showPopup({
         kind: "success",
-        title: "Circuit enregistré",
-        message: "Les modifications sont en ligne.",
+        title: ta("a.cir.manage_saved_title"),
+        message: ta("a.cir.manage_saved_msg"),
       });
     } catch (err) {
       showPopup({
         kind: "error",
-        title: "Enregistrement impossible",
-        message: err.message || "Réessaie dans un instant.",
+        title: ta("a.cir.manage_save_failed_title"),
+        message: err.message || ta("a.cir.manage_save_failed_msg"),
       });
     } finally {
       setSaving(false);
@@ -100,14 +102,14 @@ export default function CircuitDetailPage() {
   }
 
   if (loading) {
-    return <div className="adm-empty">Chargement...</div>;
+    return <div className="adm-empty">{ta("a.cir.manage_loading")}</div>;
   }
 
   if (!circuit) {
     return (
       <div className="mx-auto max-w-4xl space-y-4">
         <div className="adm-alert">
-          {error || "Circuit introuvable."}
+          {error || ta("a.cir.manage_not_found")}
         </div>
       </div>
     );
@@ -130,32 +132,32 @@ export default function CircuitDetailPage() {
       {error && <div className="adm-alert">{error}</div>}
 
       <section className="adm-card">
-        <h2 className="adm-h2">Réservations</h2>
+        <h2 className="adm-h2">{ta("a.cir.manage_reservations_title")}</h2>
 
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="adm-row">
             <p className="text-2xl font-semibold text-slate-50">
               {reservations.length}
             </p>
-            <p className="text-xs text-slate-400">au total</p>
+            <p className="text-xs text-slate-400">{ta("a.cir.manage_total")}</p>
           </div>
           <div className="adm-row">
             <p className="text-2xl font-semibold text-amber-300">
               {counts.pending || 0}
             </p>
-            <p className="text-xs text-slate-400">en attente</p>
+            <p className="text-xs text-slate-400">{ta("a.cir.manage_pending")}</p>
           </div>
           <div className="adm-row">
             <p className="text-2xl font-semibold text-emerald-300">
               {counts.confirmed || 0}
             </p>
-            <p className="text-xs text-slate-400">confirmées</p>
+            <p className="text-xs text-slate-400">{ta("a.cir.manage_confirmed")}</p>
           </div>
           <div className="adm-row">
             <p className="text-2xl font-semibold text-slate-50">
               {travelersConfirmed}
             </p>
-            <p className="text-xs text-slate-400">voyageurs confirmés</p>
+            <p className="text-xs text-slate-400">{ta("a.cir.manage_travelers_confirmed")}</p>
           </div>
         </div>
 
@@ -163,12 +165,12 @@ export default function CircuitDetailPage() {
           href="/admin/reservations"
           className="adm-btn-ghost mt-4 w-full sm:w-fit"
         >
-          Traiter les réservations
+          {ta("a.cir.manage_process_reservations")}
         </Link>
       </section>
 
       <section className="adm-card">
-        <h2 className="adm-h2">Informations</h2>
+        <h2 className="adm-h2">{ta("a.cir.manage_info_title")}</h2>
 
         {message && <div className="adm-note mt-4">{message}</div>}
 
@@ -178,7 +180,7 @@ export default function CircuitDetailPage() {
           </CircuitForm>
 
           <button disabled={saving} className="adm-btn w-full sm:w-fit">
-            {saving ? "Enregistrement..." : "Enregistrer"}
+            {saving ? ta("a.cir.manage_saving") : ta("a.cir.manage_save")}
           </button>
         </form>
       </section>

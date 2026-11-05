@@ -3,13 +3,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { api } from "@/lib/api";
+import { useAT } from "@/components/admin/AdminLanguage";
 import { addDays, endOf, formatDay, parseIso, toIso, todayIso } from "@/lib/dates";
 
 // Planning géant : toutes les dates de départ (jamais effacées = archive),
 // les circuits en cours chaque jour et les voyageurs. Recherche par nom ou
 // téléphone (le téléphone n'est jamais affiché).
 
-const DAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+// Jours de la semaine (lundi en premier) générés avec la langue de l'admin
+const weekdayNames = (locale) =>
+  Array.from({ length: 7 }, (_, i) =>
+    new Date(2024, 0, 1 + i, 12).toLocaleDateString(locale, { weekday: "short" })
+  );
 
 const PALETTE = [
   "bg-emerald-500/25 text-emerald-200 border-emerald-500/40",
@@ -31,10 +36,10 @@ function colorOf(id) {
 }
 
 const STATUS_LABEL = {
-  pending: "En attente",
-  confirmed: "Confirmée",
-  rejected: "Refusée",
-  cancelled: "Annulée",
+  pending: "a.pln.status_pending",
+  confirmed: "a.pln.status_confirmed",
+  rejected: "a.pln.status_rejected",
+  cancelled: "a.pln.status_cancelled",
 };
 
 const STATUS_TEXT = {
@@ -44,8 +49,8 @@ const STATUS_TEXT = {
   cancelled: "text-slate-400",
 };
 
-const monthTitle = (first) =>
-  parseIso(toIso(first)).toLocaleDateString("fr-FR", {
+const monthTitle = (first, locale) =>
+  parseIso(toIso(first)).toLocaleDateString(locale, {
     month: "long",
     year: "numeric",
   });
@@ -59,7 +64,7 @@ function shiftMonth(first, delta) {
 }
 
 // Groupe départs + réservations en "voyages" (circuit + date de départ)
-function buildTrips(data, showCancelled) {
+function buildTrips(data, showCancelled, ta) {
   const trips = new Map();
 
   const ensure = (circuit, circuitId, start) => {
@@ -71,7 +76,7 @@ function buildTrips(data, showCancelled) {
       trips.set(key, {
         key,
         circuitId,
-        title: circuit?.title || "Circuit",
+        title: circuit?.title || ta("a.pln.circuit_default"),
         start,
         end: endOf(start, duration),
         people: [],
@@ -104,6 +109,7 @@ function travelersOf(trip) {
 }
 
 export default function PlanningPage() {
+  const { ta, locale } = useAT();
   const today = todayIso();
 
   const [month, setMonth] = useState(() => firstOfMonth(new Date()));
@@ -195,7 +201,7 @@ export default function PlanningPage() {
     };
   }, [query]);
 
-  const trips = useMemo(() => buildTrips(data, showCancelled), [data, showCancelled]);
+  const trips = useMemo(() => buildTrips(data, showCancelled, ta), [data, showCancelled, ta]);
 
   // Cases du mois : de lundi à dimanche
   const cells = useMemo(() => {
@@ -228,10 +234,10 @@ export default function PlanningPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-sans text-2xl font-semibold text-slate-50">
-            Planning
+            {ta("a.pln.title")}
           </h1>
           <p className="text-sm text-slate-400">
-            Archive de tous les départs et des voyageurs. Rien ne s'efface.
+            {ta("a.pln.subtitle")}
           </p>
         </div>
 
@@ -241,15 +247,14 @@ export default function PlanningPage() {
             checked={showCancelled}
             onChange={(e) => setShowCancelled(e.target.checked)}
           />
-          Afficher aussi les réservations annulées
+          {ta("a.pln.show_cancelled")}
         </label>
       </div>
 
       {/* Recherche d'un voyageur */}
       <div className="adm-card space-y-3">
         <label htmlFor="planning-search" className="text-sm text-slate-300">
-          Rechercher dans le planning : voyageur (nom ou téléphone), circuit,
-          lieu visité ou date (ex. 10/11/2026)
+          {ta("a.pln.search_label")}
         </label>
 
         <input
@@ -257,23 +262,23 @@ export default function PlanningPage() {
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Ex. Arthur · +261 34 12 · Morondava · 10/11/2026"
+          placeholder={ta("a.pln.search_placeholder")}
           className="adm-input w-full"
           autoComplete="off"
         />
 
-        {searching && <p className="text-xs text-slate-500">Recherche...</p>}
+        {searching && <p className="text-xs text-slate-500">{ta("a.pln.searching")}</p>}
 
         {results && !searching && (
           <div className="space-y-3">
             {results.travelers.length === 0 && results.trips.length === 0 && (
-              <p className="text-sm text-slate-400">Aucun résultat.</p>
+              <p className="text-sm text-slate-400">{ta("a.pln.no_results")}</p>
             )}
 
             {results.travelers.length > 0 && (
               <div>
                 <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Voyageurs ({results.travelers.length})
+                  {ta("a.pln.travelers_title", { n: results.travelers.length })}
                 </p>
                 <ul className="max-h-60 divide-y divide-slate-800 overflow-y-auto rounded-lg border border-slate-800">
                   {results.travelers.map((r) => (
@@ -284,17 +289,19 @@ export default function PlanningPage() {
                         className="flex w-full flex-wrap items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-slate-800/60"
                       >
                         <span className="font-semibold text-slate-100">
-                          {r.full_name || "(nom non renseigné)"}
+                          {r.full_name || ta("a.pln.no_name")}
                         </span>
                         <span className="text-slate-300">
-                          {r.circuits?.title || "Circuit"} ·{" "}
-                          {formatDay(r.start_date, "fr-FR")} · {r.travelers}{" "}
-                          voyageur(s)
+                          {ta("a.pln.result_traveler_line", {
+                            circuit: r.circuits?.title || ta("a.pln.circuit_default"),
+                            date: formatDay(r.start_date, locale),
+                            n: r.travelers,
+                          })}
                         </span>
                         <span
                           className={STATUS_TEXT[r.status] || "text-slate-400"}
                         >
-                          {STATUS_LABEL[r.status] || r.status}
+                          {STATUS_LABEL[r.status] ? ta(STATUS_LABEL[r.status]) : r.status}
                         </span>
                       </button>
                     </li>
@@ -306,7 +313,7 @@ export default function PlanningPage() {
             {results.trips.length > 0 && (
               <div>
                 <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Circuits et départs ({results.trips.length})
+                  {ta("a.pln.trips_title", { n: results.trips.length })}
                 </p>
                 <ul className="max-h-60 divide-y divide-slate-800 overflow-y-auto rounded-lg border border-slate-800">
                   {results.trips.map((t) => (
@@ -317,13 +324,13 @@ export default function PlanningPage() {
                         className="flex w-full flex-wrap items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-slate-800/60"
                       >
                         <span className="font-semibold text-slate-100">
-                          {t.circuits?.title || "Circuit"}
+                          {t.circuits?.title || ta("a.pln.circuit_default")}
                         </span>
                         <span className="text-slate-300">
-                          Départ le {formatDay(t.start_date, "fr-FR")}
+                          {ta("a.pln.departure_on", { date: formatDay(t.start_date, locale) })}
                         </span>
                         <span className="text-slate-400">
-                          {t.travelers} voyageur(s)
+                          {ta("a.pln.travelers_count", { n: t.travelers })}
                         </span>
                       </button>
                     </li>
@@ -349,7 +356,7 @@ export default function PlanningPage() {
               type="button"
               className="adm-btn !px-3"
               onClick={() => setMonth((m) => shiftMonth(m, -1))}
-              aria-label="Mois précédent"
+              aria-label={ta("a.pln.prev_month")}
             >
               ←
             </button>
@@ -357,7 +364,7 @@ export default function PlanningPage() {
               type="button"
               className="adm-btn !px-3"
               onClick={() => setMonth((m) => shiftMonth(m, 1))}
-              aria-label="Mois suivant"
+              aria-label={ta("a.pln.next_month")}
             >
               →
             </button>
@@ -369,21 +376,21 @@ export default function PlanningPage() {
                 setSelected(today);
               }}
             >
-              Aujourd'hui
+              {ta("a.pln.today")}
             </button>
           </div>
 
           <h2 className="font-sans text-xl font-semibold capitalize text-slate-50">
-            {monthTitle(month)}
+            {monthTitle(month, locale)}
           </h2>
 
           <span className="text-xs text-slate-500">
-            {loading ? "Chargement..." : ""}
+            {loading ? ta("a.pln.loading") : ""}
           </span>
         </div>
 
         <div className="grid grid-cols-7 gap-px overflow-hidden rounded-lg border border-slate-800 bg-slate-800">
-          {DAYS.map((d) => (
+          {weekdayNames(locale).map((d) => (
             <div
               key={d}
               className="bg-slate-900 py-1.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-400"
@@ -435,7 +442,7 @@ export default function PlanningPage() {
 
                   {list.length > 3 && (
                     <span className="text-[11px] text-slate-400">
-                      +{list.length - 3} autre(s)
+                      {ta("a.pln.others", { n: list.length - 3 })}
                     </span>
                   )}
                 </div>
@@ -456,20 +463,19 @@ export default function PlanningPage() {
         </div>
 
         <p className="text-xs text-slate-500">
-          ▶ = jour de départ. Le chiffre à côté du circuit = nombre de voyageurs
-          (réservations non annulées).
+          ▶ {ta("a.pln.legend")}
         </p>
       </div>
 
       {/* Détail du jour */}
       <div ref={panelRef} className="adm-card scroll-mt-4 space-y-4">
         <h2 className="font-sans text-lg font-semibold capitalize text-slate-50">
-          {formatDay(selected, "fr-FR")}
+          {formatDay(selected, locale)}
         </h2>
 
         {dayTrips.length === 0 ? (
           <p className="text-sm text-slate-400">
-            Aucun circuit en cours ce jour-là.
+            {ta("a.pln.no_trips_day")}
           </p>
         ) : (
           dayTrips.map((t) => (
@@ -482,14 +488,17 @@ export default function PlanningPage() {
                   {t.title}
                 </h3>
                 <p className="text-xs text-slate-300">
-                  Du {formatDay(t.start, "fr-FR")} au {formatDay(t.end, "fr-FR")}{" "}
-                  · {travelersOf(t)} voyageur(s)
+                  {ta("a.pln.range_line", {
+                    from: formatDay(t.start, locale),
+                    to: formatDay(t.end, locale),
+                    n: travelersOf(t),
+                  })}
                 </p>
               </div>
 
               {t.people.length === 0 ? (
                 <p className="text-sm text-slate-300">
-                  Aucune réservation pour ce départ.
+                  {ta("a.pln.no_reservations")}
                 </p>
               ) : (
                 <ul className="divide-y divide-slate-700/60 text-sm">
@@ -503,14 +512,14 @@ export default function PlanningPage() {
                       }`}
                     >
                       <span className="text-slate-50">
-                        {p.full_name || "(nom non renseigné)"}
+                        {p.full_name || ta("a.pln.no_name")}
                       </span>
                       <span className="text-slate-300">
-                        {p.travelers} voyageur(s)
+                        {ta("a.pln.travelers_count", { n: p.travelers })}
                       </span>
                       <span className={STATUS_TEXT[p.status] || "text-slate-400"}>
-                        {STATUS_LABEL[p.status] || p.status}
-                        {p.payment_status === "paid" ? " · acompte payé" : ""}
+                        {STATUS_LABEL[p.status] ? ta(STATUS_LABEL[p.status]) : p.status}
+                        {p.payment_status === "paid" ? ` · ${ta("a.pln.deposit_paid")}` : ""}
                       </span>
                     </li>
                   ))}

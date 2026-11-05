@@ -61,16 +61,17 @@ function cleanI18n(values) {
 }
 
 // Retourne { error } ou { payload, placeIds }
-export function buildCircuitPayload(form) {
+// ta : fonction de traduction de l'admin (useAT)
+export function buildCircuitPayload(form, ta) {
   const title = firstFilled(form.title);
   const description = firstFilled(form.description);
 
   if (title.length < 3) {
-    return { error: "Saisis le titre dans au moins une langue (3 caractères minimum)." };
+    return { error: ta("a.cir.val_title") };
   }
 
   if (description.length < 10) {
-    return { error: "Saisis la description dans au moins une langue (10 caractères minimum)." };
+    return { error: ta("a.cir.val_description") };
   }
 
   const tiers = {};
@@ -79,14 +80,14 @@ export function buildCircuitPayload(form) {
     const raw = form.tiers[t.key];
 
     if (raw === "" || raw === null || Number.isNaN(Number(raw)) || Number(raw) < 0) {
-      return { error: `Renseigne le prix par personne pour le groupe ${t.label}.` };
+      return { error: ta("a.cir.val_price", { group: t.label }) };
     }
 
     tiers[t.key] = Number(raw);
   }
 
   if (form.stops.length < 2) {
-    return { error: "Choisis au moins 2 lieux : le départ et l'arrivée." };
+    return { error: ta("a.cir.val_stops") };
   }
 
   const payload = {

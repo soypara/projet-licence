@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "./AdminTheme";
 import { useAdminRole } from "./AdminRole";
-import { useAT } from "./AdminLanguage";
+import { AdminLanguageSwitcher, useAT } from "./AdminLanguage";
 import { isSuperAdmin } from "@/lib/roles";
 
 const LINKS = [
@@ -47,6 +47,7 @@ export default function AdminSidebar() {
             {ta("a.nav.see_site")}
           </Link>
           <ThemeToggle className="!px-2 !py-1 !text-xs" />
+          <AdminLanguageSwitcher className="!w-auto !px-1 !py-1 !text-xs" />
         </div>
 
         <nav className="flex gap-1 overflow-x-auto border-t border-slate-800 px-3 py-2">
@@ -98,6 +99,11 @@ export default function AdminSidebar() {
         </Link>
 
         <ThemeToggle className="mt-3 w-full" />
+
+        <label className="mt-4 block text-xs text-slate-400">
+          {ta("a.lang.label")}
+          <AdminLanguageSwitcher className="mt-1 w-full" />
+        </label>
 
       </aside>
     </>

@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useAT } from "@/components/admin/AdminLanguage";
 
 export default function AdminCommentsPage() {
+  const { ta } = useAT();
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -20,7 +22,7 @@ export default function AdminCommentsPage() {
     } catch (err) {
       setError(
         err.message ||
-          "Impossible de charger les commentaires."
+          ta("a.com.load_error")
       );
     } finally {
       setLoading(false);
@@ -53,7 +55,7 @@ export default function AdminCommentsPage() {
   async function remove(id) {
     if (
       !window.confirm(
-        "Supprimer ce commentaire ?"
+        ta("a.com.confirm_delete")
       )
     ) {
       return;
@@ -78,25 +80,25 @@ export default function AdminCommentsPage() {
   };
 
   const STATUS_LABEL = {
-    pending: "En attente",
-    approved: "Approuvé",
-    rejected: "Rejeté",
+    pending: ta("a.com.status_pending"),
+    approved: ta("a.com.status_approved"),
+    rejected: ta("a.com.status_rejected"),
   };
 
   return (
     <div className="mx-auto max-w-4xl">
       <div className="mb-6">
-        <h1 className="adm-h1">Commentaires</h1>
-        <p className="adm-sub">Modération des avis des utilisateurs.</p>
+        <h1 className="adm-h1">{ta("a.com.title")}</h1>
+        <p className="adm-sub">{ta("a.com.subtitle")}</p>
       </div>
 
       {error && <div className="adm-alert mb-6">{error}</div>}
 
       <section className="adm-card">
         {loading ? (
-          <p className="adm-empty">Chargement...</p>
+          <p className="adm-empty">{ta("a.com.loading")}</p>
         ) : comments.length === 0 ? (
-          <p className="adm-empty">Aucun commentaire.</p>
+          <p className="adm-empty">{ta("a.com.none")}</p>
         ) : (
           <div className="space-y-3">
             {comments.map((comment) => (
@@ -124,7 +126,7 @@ export default function AdminCommentsPage() {
                     <p className="mt-2 text-xs text-slate-500">
                       {comment.circuits?.title ||
                         comment.tourist_places?.name ||
-                        "Circuit inconnu"}
+                        ta("a.com.unknown_circuit")}
                     </p>
                   </div>
 
@@ -134,7 +136,7 @@ export default function AdminCommentsPage() {
                         onClick={() => updateStatus(comment.id, "approved")}
                         className="adm-btn-ok"
                       >
-                        Approuver
+                        {ta("a.com.approve")}
                       </button>
                     )}
 
@@ -143,7 +145,7 @@ export default function AdminCommentsPage() {
                         onClick={() => updateStatus(comment.id, "rejected")}
                         className="adm-btn-warn"
                       >
-                        Rejeter
+                        {ta("a.com.reject")}
                       </button>
                     )}
 
@@ -151,7 +153,7 @@ export default function AdminCommentsPage() {
                       onClick={() => remove(comment.id)}
                       className="adm-btn-danger"
                     >
-                      Supprimer
+                      {ta("a.com.delete")}
                     </button>
                   </div>
                 </div>

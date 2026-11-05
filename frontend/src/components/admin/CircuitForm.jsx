@@ -5,6 +5,7 @@ import { TIERS } from "@/lib/pricing";
 import { endOf, formatRange } from "@/lib/dates";
 import { usePopup } from "@/components/PopupProvider";
 import DepartureCalendarModal from "./DepartureCalendarModal";
+import { useAT } from "@/components/admin/AdminLanguage";
 
 const LANGS = [
   { code: "fr", label: "Français" },
@@ -14,11 +15,10 @@ const LANGS = [
 
 // Formulaire circuit partagé par la création et la page "Gérer".
 // value = objet venant de lib/circuitForm.js ; places = lieux disponibles.
-const frT = (key, vars) =>
-  key === "dep.one_day" ? `le ${vars.from}` : `du ${vars.from} au ${vars.to}`;
 
 export default function CircuitForm({ value, onChange, places, children }) {
   const { showPopup } = usePopup();
+  const { ta, locale } = useAT();
   const [calendarOpen, setCalendarOpen] = useState(false);
 
   const duration = Number(value.duration_days) || 0;
@@ -27,9 +27,8 @@ export default function CircuitForm({ value, onChange, places, children }) {
     if (duration < 1) {
       showPopup({
         kind: "error",
-        title: "Durée manquante",
-        message:
-          "Renseigne d'abord la durée du circuit (en jours) : le calendrier en a besoin pour sélectionner les bons jours.",
+        title: ta("a.cir.form_missing_duration_title"),
+        message: ta("a.cir.form_missing_duration_msg"),
       });
       return;
     }
@@ -64,16 +63,14 @@ export default function CircuitForm({ value, onChange, places, children }) {
     onChange({ ...value, stops: next });
   }
 
-  const nameOf = (id) => places.find((p) => p.id === id)?.name || "Lieu supprimé";
+  const nameOf = (id) => places.find((p) => p.id === id)?.name || ta("a.cir.form_deleted_place");
 
   return (
     <div className="grid gap-6">
       {/* Titre et description par langue */}
       <div className="grid gap-4">
         <p className="adm-note">
-          Remplis une ou plusieurs langues. Une langue laissée vide est traduite
-          automatiquement à partir de la première langue remplie ; une langue
-          remplie est utilisée telle quelle.
+          {ta("a.cir.form_langs_note")}
         </p>
 
         {LANGS.map((l) => (
@@ -83,7 +80,7 @@ export default function CircuitForm({ value, onChange, places, children }) {
             </p>
 
             <div>
-              <label className="adm-label">Titre</label>
+              <label className="adm-label">{ta("a.cir.form_title")}</label>
               <input
                 value={value.title[l.code]}
                 onChange={(e) => setI18n("title", l.code, e.target.value)}
@@ -92,7 +89,7 @@ export default function CircuitForm({ value, onChange, places, children }) {
             </div>
 
             <div>
-              <label className="adm-label">Description</label>
+              <label className="adm-label">{ta("a.cir.form_description")}</label>
               <textarea
                 rows={3}
                 value={value.description[l.code]}
@@ -106,11 +103,11 @@ export default function CircuitForm({ value, onChange, places, children }) {
 
       {/* Étapes */}
       <div>
-        <label className="adm-label">Étapes du circuit (départ → arrivée)</label>
+        <label className="adm-label">{ta("a.cir.form_stops_label")}</label>
 
         {value.stops.length === 0 ? (
           <p className="mb-3 text-sm text-slate-500">
-            Aucune étape. Ajoute au moins 2 lieux.
+            {ta("a.cir.form_no_stops")}
           </p>
         ) : (
           <ol className="mb-3 space-y-2">
@@ -129,10 +126,10 @@ export default function CircuitForm({ value, onChange, places, children }) {
 
                 <span className="hidden text-xs text-slate-500 sm:block">
                   {index === 0
-                    ? "Départ"
+                    ? ta("a.cir.form_stop_start")
                     : index === value.stops.length - 1
-                    ? "Arrivée"
-                    : "Étape"}
+                    ? ta("a.cir.form_stop_end")
+                    : ta("a.cir.form_stop_middle")}
                 </span>
 
                 <button
@@ -140,7 +137,7 @@ export default function CircuitForm({ value, onChange, places, children }) {
                   onClick={() => moveStop(index, -1)}
                   disabled={index === 0}
                   className="adm-btn-ghost !px-2 !py-1 disabled:opacity-30"
-                  aria-label="Monter"
+                  aria-label={ta("a.cir.form_move_up")}
                 >
                   ↑
                 </button>
@@ -149,7 +146,7 @@ export default function CircuitForm({ value, onChange, places, children }) {
                   onClick={() => moveStop(index, 1)}
                   disabled={index === value.stops.length - 1}
                   className="adm-btn-ghost !px-2 !py-1 disabled:opacity-30"
-                  aria-label="Descendre"
+                  aria-label={ta("a.cir.form_move_down")}
                 >
                   ↓
                 </button>
@@ -157,7 +154,7 @@ export default function CircuitForm({ value, onChange, places, children }) {
                   type="button"
                   onClick={() => removeStop(index)}
                   className="adm-btn-danger !px-2 !py-1"
-                  aria-label="Retirer"
+                  aria-label={ta("a.cir.form_remove")}
                 >
                   ✕
                 </button>
@@ -171,7 +168,7 @@ export default function CircuitForm({ value, onChange, places, children }) {
           onChange={(e) => addStop(e.target.value)}
           className="adm-input"
         >
-          <option value="">+ Ajouter un lieu à la suite…</option>
+          <option value="">{ta("a.cir.form_add_place")}</option>
           {places.map((place) => (
             <option key={place.id} value={place.id}>
               {place.name}
@@ -182,7 +179,7 @@ export default function CircuitForm({ value, onChange, places, children }) {
 
       {/* Durée */}
       <div className="sm:max-w-xs">
-        <label className="adm-label">Durée (jours)</label>
+        <label className="adm-label">{ta("a.cir.form_duration")}</label>
         <input
           type="number"
           min="1"
@@ -195,18 +192,15 @@ export default function CircuitForm({ value, onChange, places, children }) {
 
       {/* Dates de départ */}
       <div>
-        <label className="adm-label">Dates de départ</label>
+        <label className="adm-label">{ta("a.cir.form_departures_label")}</label>
 
         <p className="adm-note mb-3">
-          Le client ne choisit plus une date libre : il choisit parmi ces
-          départs. Les dates passées disparaissent toutes seules du site ; pense
-          à en ajouter de nouvelles.
+          {ta("a.cir.form_departures_note")}
         </p>
 
         {value.departures.length === 0 ? (
           <p className="mb-3 text-sm text-slate-500">
-            Aucun départ à venir. Le circuit ne peut pas être réservé tant
-            qu&apos;il n&apos;y en a pas.
+            {ta("a.cir.form_no_departures")}
           </p>
         ) : (
           <ul className="mb-3 space-y-2">
@@ -217,8 +211,8 @@ export default function CircuitForm({ value, onChange, places, children }) {
               >
                 <span className="text-slate-100">
                   {duration > 0
-                    ? formatRange(start, endOf(start, duration), "fr-FR", frT)
-                    : formatRange(start, start, "fr-FR", frT)}
+                    ? formatRange(start, endOf(start, duration), locale, ta)
+                    : formatRange(start, start, locale, ta)}
                 </span>
 
                 <button
@@ -230,7 +224,7 @@ export default function CircuitForm({ value, onChange, places, children }) {
                     })
                   }
                   className="adm-btn-danger !px-2 !py-1"
-                  aria-label="Retirer ce départ"
+                  aria-label={ta("a.cir.form_remove_departure")}
                 >
                   ✕
                 </button>
@@ -240,7 +234,7 @@ export default function CircuitForm({ value, onChange, places, children }) {
         )}
 
         <button type="button" onClick={openCalendar} className="adm-btn-ghost">
-          Choisir / modifier les dates
+          {ta("a.cir.form_pick_dates")}
         </button>
 
         {calendarOpen && (
@@ -258,12 +252,12 @@ export default function CircuitForm({ value, onChange, places, children }) {
 
       {/* Tarifs */}
       <div>
-        <label className="adm-label">Prix par personne selon le groupe (Ariary)</label>
+        <label className="adm-label">{ta("a.cir.form_prices_label")}</label>
 
         <div className="grid gap-3 sm:grid-cols-5">
           {TIERS.map((tier) => (
             <div key={tier.key}>
-              <p className="mb-1 text-xs text-slate-400">{tier.label} pers.</p>
+              <p className="mb-1 text-xs text-slate-400">{ta("a.cir.form_tier_people", { label: tier.label })}</p>
               <input
                 type="number"
                 min="0"
@@ -279,7 +273,7 @@ export default function CircuitForm({ value, onChange, places, children }) {
       {/* Photos : juste sous les tarifs, avant d'enregistrer */}
       {children && (
         <div>
-          <label className="adm-label">Photos et vidéos du circuit</label>
+          <label className="adm-label">{ta("a.cir.form_media_label")}</label>
           {children}
         </div>
       )}

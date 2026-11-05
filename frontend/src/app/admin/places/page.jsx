@@ -5,8 +5,11 @@ import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { API_URL } from "@/lib/api";
 import ManualPlaceForm from "@/components/admin/ManualPlaceForm";
+import { useAT } from "@/components/admin/AdminLanguage";
 
 export default function PlacesPage() {
+  const { ta } = useAT();
+
   // "search" : recherche en ligne (comme avant) ; "manual" : tout à la main
   const [mode, setMode] = useState("search");
 
@@ -119,7 +122,7 @@ export default function PlacesPage() {
 
       if (!session?.access_token) {
         throw new Error(
-          "Vous devez être connecté pour importer un lieu."
+          ta("a.plc.search_err_login")
         );
       }
 
@@ -170,7 +173,7 @@ export default function PlacesPage() {
       if (!placeResponse.ok) {
         throw new Error(
           placeData.message ||
-            "Impossible d'importer le lieu."
+            ta("a.plc.search_err_import_place")
         );
       }
 
@@ -223,13 +226,13 @@ export default function PlacesPage() {
         if (!mediaResponse.ok) {
           throw new Error(
             mediaData.message ||
-              `Impossible d'importer la photo ${localImage.name}.`
+              ta("a.plc.search_err_import_photo", { name: localImage.name })
           );
         }
       }
 
       setImportMessage(
-        `✅ "${selectedPlace.name}" a été importé avec succès.`
+        `✅ ${ta("a.plc.search_import_success", { name: selectedPlace.name })}`
       );
 
       setSelectedPlace(null);
@@ -241,7 +244,7 @@ export default function PlacesPage() {
       setImportMessage(
         `❌ ${
           error.message ||
-          "Une erreur est survenue pendant l'import."
+          ta("a.plc.search_err_generic")
         }`
       );
     } finally {
@@ -259,9 +262,9 @@ export default function PlacesPage() {
 
   return (
     <div className="mx-auto max-w-4xl">
-      <h1 className="adm-h1">Lieux touristiques</h1>
+      <h1 className="adm-h1">{ta("a.plc.title")}</h1>
       <p className="adm-sub">
-        Rechercher un lieu touristique à Madagascar, ou l&apos;ajouter à la main.
+        {ta("a.plc.search_subtitle")}
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2">
@@ -270,17 +273,17 @@ export default function PlacesPage() {
           onClick={() => setMode("search")}
           className={mode === "search" ? "adm-btn-ok" : "adm-btn-ghost"}
         >
-          Rechercher en ligne
+          {ta("a.plc.search_tab_online")}
         </button>
         <button
           type="button"
           onClick={() => setMode("manual")}
           className={mode === "manual" ? "adm-btn-ok" : "adm-btn-ghost"}
         >
-          Ajouter à la main
+          {ta("a.plc.search_tab_manual")}
         </button>
         <Link href="/admin/places/list" className="adm-btn-ghost">
-          Lieux existants
+          {ta("a.plc.existing_places")}
         </Link>
       </div>
 
@@ -297,7 +300,7 @@ export default function PlacesPage() {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Ex. Allée des Baobabs"
+          placeholder={ta("a.plc.search_placeholder")}
           className="adm-input"
         />
 
@@ -306,7 +309,7 @@ export default function PlacesPage() {
           disabled={loading}
           className="adm-btn w-full sm:w-auto"
         >
-          {loading ? "Recherche..." : "Rechercher"}
+          {loading ? ta("a.plc.search_loading") : ta("a.plc.search_submit")}
         </button>
       </form>
 
@@ -352,25 +355,25 @@ export default function PlacesPage() {
                     isSelected ? "adm-btn-ok !px-5 !py-2.5" : "adm-btn"
                   }`}
                 >
-                  {isSelected ? "Lieu sélectionné" : "Sélectionner ce lieu"}
+                  {isSelected ? ta("a.plc.search_selected") : ta("a.plc.search_select")}
                 </button>
               </div>
 
               {/* Zone de sélection */}
               {isSelected && (
                 <div className="border-t border-slate-800 bg-slate-950/60 p-4 sm:p-5">
-                  <h3 className="adm-h2">Photos du lieu</h3>
+                  <h3 className="adm-h2">{ta("a.plc.search_photos_title")}</h3>
 
                   {/* Photos Internet */}
                   <div className="mt-5">
                     <h4 className="text-sm font-medium text-slate-200">
-                      Photos disponibles sur Internet
+                      {ta("a.plc.search_web_photos")}
                     </h4>
 
                     {place.images?.length > 0 ? (
                       <>
                         <p className="mb-4 mt-1 text-sm text-slate-400">
-                          Sélectionne les photos que tu souhaites importer.
+                          {ta("a.plc.search_web_photos_hint")}
                         </p>
 
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -406,7 +409,7 @@ export default function PlacesPage() {
                                     />
 
                                     <span className="text-sm font-medium text-slate-100">
-                                      Photo {index + 1}
+                                      {ta("a.plc.search_photo_n", { n: index + 1 })}
                                     </span>
                                   </div>
 
@@ -416,7 +419,7 @@ export default function PlacesPage() {
 
                                   {image.license && (
                                     <p className="mt-2 text-xs text-slate-500">
-                                      Licence : {image.license}
+                                      {ta("a.plc.search_license", { license: image.license })}
                                     </p>
                                   )}
                                 </div>
@@ -427,7 +430,7 @@ export default function PlacesPage() {
                       </>
                     ) : (
                       <p className="mt-2 text-sm text-slate-500">
-                        Aucune photo disponible depuis cette source.
+                        {ta("a.plc.search_no_photo")}
                       </p>
                     )}
                   </div>
@@ -435,15 +438,15 @@ export default function PlacesPage() {
                   {/* Photos locales */}
                   <div className="mt-8">
                     <h4 className="text-sm font-medium text-slate-200">
-                      Photos depuis l&apos;appareil
+                      {ta("a.plc.search_device_photos")}
                     </h4>
 
                     <p className="mt-1 text-sm text-slate-400">
-                      Ajoute tes propres photos si nécessaire.
+                      {ta("a.plc.search_device_hint")}
                     </p>
 
                     <label className="adm-btn-ghost mt-4 w-full cursor-pointer !py-2.5 sm:w-auto">
-                      + Ajouter des photos
+                      {ta("a.plc.search_add_photos")}
                       <input
                         type="file"
                         accept="image/*"
@@ -456,7 +459,7 @@ export default function PlacesPage() {
                     {localImages.length > 0 && (
                       <div className="mt-5">
                         <p className="mb-3 text-sm font-medium text-slate-200">
-                          Photos locales ajoutées : {localImages.length}
+                          {ta("a.plc.search_local_count", { n: localImages.length })}
                         </p>
 
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -481,7 +484,7 @@ export default function PlacesPage() {
                                   onClick={() => removeLocalImage(image.id)}
                                   className="adm-btn-danger shrink-0"
                                 >
-                                  Retirer
+                                  {ta("a.plc.search_remove")}
                                 </button>
                               </div>
                             </div>
@@ -494,18 +497,17 @@ export default function PlacesPage() {
                   {/* Import */}
                   {(selectedImages.length > 0 || localImages.length > 0) && (
                     <div className="adm-card mt-8">
-                      <h3 className="adm-h2">Prêt à importer</h3>
+                      <h3 className="adm-h2">{ta("a.plc.search_ready")}</h3>
 
                       <p className="mt-2 text-sm text-slate-200">
                         <strong>{place.name}</strong>
                       </p>
 
                       <p className="mt-1 text-sm text-slate-400">
-                        {selectedImages.length} photo
-                        {selectedImages.length > 1 ? "s" : ""} Internet +{" "}
-                        {localImages.length} photo
-                        {localImages.length > 1 ? "s" : ""} locale
-                        {localImages.length > 1 ? "s" : ""}
+                        {ta("a.plc.search_import_counts", {
+                          web: selectedImages.length,
+                          local: localImages.length,
+                        })}
                       </p>
 
                       <button
@@ -515,8 +517,8 @@ export default function PlacesPage() {
                         className="adm-btn mt-4 w-full sm:w-auto"
                       >
                         {importing
-                          ? "Importation en cours..."
-                          : "Importer ce lieu"}
+                          ? ta("a.plc.search_importing")
+                          : ta("a.plc.search_import")}
                       </button>
                     </div>
                   )}

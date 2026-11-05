@@ -4,8 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import MediaManager from "@/components/admin/MediaManager";
+import { useAT } from "@/components/admin/AdminLanguage";
 
 export default function AdminPlacesListPage() {
+  const { ta } = useAT();
+
   const [places, setPlaces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -62,7 +65,7 @@ export default function AdminPlacesListPage() {
   }
 
   async function handleDelete(id) {
-    if (!window.confirm("Supprimer ce lieu ?")) return;
+    if (!window.confirm(ta("a.plc.list_confirm_delete"))) return;
 
     try {
       setError("");
@@ -83,14 +86,14 @@ export default function AdminPlacesListPage() {
   return (
     <div className="mx-auto max-w-4xl">
       <div className="mb-6">
-        <h1 className="adm-h1">Lieux touristiques</h1>
-        <p className="adm-sub">Modifier, supprimer et gérer les photos.</p>
+        <h1 className="adm-h1">{ta("a.plc.title")}</h1>
+        <p className="adm-sub">{ta("a.plc.list_subtitle")}</p>
 
         <div className="mt-4 flex gap-2">
           <Link href="/admin/places" className="adm-btn-ghost">
-            Importer un lieu
+            {ta("a.plc.list_import")}
           </Link>
-          <span className="adm-btn-ok cursor-default">Lieux existants</span>
+          <span className="adm-btn-ok cursor-default">{ta("a.plc.existing_places")}</span>
         </div>
       </div>
 
@@ -98,20 +101,20 @@ export default function AdminPlacesListPage() {
 
       <section className="adm-card">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="adm-sub !mt-0">{places.length} lieu(x)</p>
+          <p className="adm-sub !mt-0">{ta("a.plc.list_count", { n: places.length })}</p>
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher..."
+            placeholder={ta("a.plc.list_search_placeholder")}
             className="adm-input sm:max-w-xs"
           />
         </div>
 
         {loading ? (
-          <p className="adm-empty">Chargement...</p>
+          <p className="adm-empty">{ta("a.plc.list_loading")}</p>
         ) : filtered.length === 0 ? (
-          <p className="adm-empty">Aucun lieu trouvé.</p>
+          <p className="adm-empty">{ta("a.plc.list_empty")}</p>
         ) : (
           <div className="mt-5 space-y-3">
             {filtered.map((p) => (
@@ -119,7 +122,7 @@ export default function AdminPlacesListPage() {
                 {editingId === p.id ? (
                   <div className="space-y-4">
                     <div>
-                      <label className="adm-label">Nom</label>
+                      <label className="adm-label">{ta("a.plc.list_label_name")}</label>
                       <input
                         className="adm-input"
                         value={editForm.name}
@@ -130,7 +133,7 @@ export default function AdminPlacesListPage() {
                     </div>
 
                     <div>
-                      <label className="adm-label">Description</label>
+                      <label className="adm-label">{ta("a.plc.list_label_description")}</label>
                       <textarea
                         className="adm-input"
                         rows={4}
@@ -146,7 +149,7 @@ export default function AdminPlacesListPage() {
 
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div>
-                        <label className="adm-label">Latitude</label>
+                        <label className="adm-label">{ta("a.plc.list_label_lat")}</label>
                         <input
                           className="adm-input"
                           type="number"
@@ -161,7 +164,7 @@ export default function AdminPlacesListPage() {
                         />
                       </div>
                       <div>
-                        <label className="adm-label">Longitude</label>
+                        <label className="adm-label">{ta("a.plc.list_label_lon")}</label>
                         <input
                           className="adm-input"
                           type="number"
@@ -184,14 +187,14 @@ export default function AdminPlacesListPage() {
                         onClick={() => saveEdit(p.id)}
                         className="adm-btn"
                       >
-                        {saving ? "Enregistrement..." : "Enregistrer"}
+                        {saving ? ta("a.plc.list_saving") : ta("a.plc.list_save")}
                       </button>
                       <button
                         type="button"
                         onClick={() => setEditingId(null)}
                         className="adm-btn-ghost"
                       >
-                        Annuler
+                        {ta("a.plc.list_cancel")}
                       </button>
                     </div>
                   </div>
@@ -220,21 +223,21 @@ export default function AdminPlacesListPage() {
                           }
                           className="adm-btn-ghost"
                         >
-                          Photos
+                          {ta("a.plc.list_photos")}
                         </button>
                         <button
                           type="button"
                           onClick={() => startEdit(p)}
                           className="adm-btn-ghost"
                         >
-                          Modifier
+                          {ta("a.plc.list_edit")}
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDelete(p.id)}
                           className="adm-btn-danger"
                         >
-                          Supprimer
+                          {ta("a.plc.list_delete")}
                         </button>
                       </div>
                     </div>

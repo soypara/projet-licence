@@ -3,15 +3,16 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { useAT } from "@/components/admin/AdminLanguage";
 
-const nf = new Intl.NumberFormat("fr-FR");
+const STATS_UNAVAILABLE = "a.dash.stats_unavailable";
 
-function num(value) {
-  return nf.format(Number(value) || 0);
+function num(value, locale) {
+  return new Intl.NumberFormat(locale).format(Number(value) || 0);
 }
 
-function ar(value) {
-  return `${num(value)} Ar`;
+function ar(value, locale) {
+  return `${num(value, locale)} Ar`;
 }
 
 // Pourcentage entier (0 si on divise par zéro)
@@ -56,11 +57,13 @@ function StatCard({ label, value, hint, href }) {
 }
 
 function FunnelStep({ label, value, max, note }) {
+  const { locale } = useAT();
+
   return (
     <div className="space-y-1.5">
       <div className="flex items-baseline justify-between gap-3">
         <p className="text-sm text-slate-200">{label}</p>
-        <p className="font-mono text-lg text-slate-50">{num(value)}</p>
+        <p className="font-mono text-lg text-slate-50">{num(value, locale)}</p>
       </div>
       <Bar value={value} max={max} />
       {note && <p className="text-xs text-slate-500">{note}</p>}
@@ -80,6 +83,7 @@ function Stars({ value }) {
 }
 
 export default function AdminPage() {
+  const { ta, locale } = useAT();
   const [stats, setStats] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -89,7 +93,7 @@ export default function AdminPage() {
       try {
         setStats(await api.get("/stats"));
       } catch (e) {
-        setError(e.message || "Statistiques indisponibles.");
+        setError(e.message || STATS_UNAVAILABLE);
       } finally {
         setLoading(false);
       }
@@ -129,63 +133,62 @@ export default function AdminPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <div>
-        <h1 className="adm-h1">Dashboard</h1>
-        <p className="adm-sub">Vue générale de Madagascar Tour.</p>
+        <h1 className="adm-h1">{ta("a.dash.title")}</h1>
+        <p className="adm-sub">
+          {ta("a.dash.overview", { name: "Madagascar Tour" })}
+        </p>
       </div>
 
       {error && (
         <div className="adm-alert">
-          {error}
-          <p className="mt-1 text-xs opacity-80">
-            Les statistiques demandent d&apos;avoir exécuté sql/phase5_notes_stats.sql
-            dans Supabase.
-          </p>
+          {error === STATS_UNAVAILABLE ? ta(STATS_UNAVAILABLE) : error}
+          <p className="mt-1 text-xs opacity-80">{ta("a.dash.sql_hint")}</p>
         </div>
       )}
 
       {/* ---------- Chiffres clés ---------- */}
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
-          label="Visiteurs"
-          value={dash ?? num(s.visitors)}
-          hint={`${num(s.page_views)} pages vues`}
+          label={ta("a.dash.visitors")}
+          value={dash ?? num(s.visitors, locale)}
+          hint={ta("a.dash.page_views_hint", { n: num(s.page_views, locale) })}
         />
         <StatCard
-          label="Comptes créés"
-          value={dash ?? num(s.accounts)}
-          hint="Inscrits sur le site"
+          label={ta("a.dash.accounts")}
+          value={dash ?? num(s.accounts, locale)}
+          hint={ta("a.dash.accounts_hint")}
         />
         <StatCard
-          label="Réservations"
-          value={dash ?? num(r.total)}
-          hint={`${num(r.pending)} en attente`}
+          label={ta("a.dash.reservations")}
+          value={dash ?? num(r.total, locale)}
+          hint={ta("a.dash.pending_hint", { n: num(r.pending, locale) })}
           href="/admin/reservations"
         />
         <StatCard
-          label="Avis à modérer"
-          value={dash ?? num(s.comments_pending)}
-          hint={`${num(s.comments_total)} avis au total`}
+          label={ta("a.dash.reviews_to_moderate")}
+          value={dash ?? num(s.comments_pending, locale)}
+          hint={ta("a.dash.reviews_total_hint", { n: num(s.comments_total, locale) })}
           href="/admin/comments"
         />
         <StatCard
-          label="Circuits"
-          value={dash ?? num(s.circuits)}
+          label={ta("a.dash.circuits")}
+          value={dash ?? num(s.circuits, locale)}
           href="/admin/circuits"
         />
         <StatCard
-          label="Lieux touristiques"
-          value={dash ?? num(s.places)}
+          label={ta("a.dash.places")}
+          value={dash ?? num(s.places, locale)}
           href="/admin/places"
         />
         <StatCard
-          label="Chiffre confirmé"
-          value={dash ?? ar(s.revenue_confirmed)}
-          hint={`${num(s.travelers_confirmed)} voyageur(s) confirmé(s)`}
+          label={ta("a.dash.revenue_confirmed")}
+          value={dash ?? ar(s.revenue_confirmed, locale)}
+          hint={ta("a.dash.travelers_confirmed_hint", { n: num(s.travelers_confirmed, locale) })}
         />
         <StatCard
-          label="En attente de réponse"
-          value={dash ?? ar(s.revenue_pending)}
-          hint="Demandes à traiter"
+          label={ta("a.dash.revenue_pending")}
+          value={dash ?? ar(s.revenue_pending, locale)}
+          hint={ta("a.dash.requests_to_handle")}
         />
       </section>
 
@@ -195,76 +198,80 @@ export default function AdminPage() {
           <section className="grid gap-4 lg:grid-cols-2">
             <div className="adm-card space-y-5">
               <div>
-                <h2 className="adm-h2">Du visiteur à la réservation</h2>
+                <h2 className="adm-h2">{ta("a.dash.funnel_title")}</h2>
                 <p className="adm-sub !mt-0.5">
-                  Combien de personnes vont jusqu&apos;au bout.
+                  {ta("a.dash.funnel_sub")}
                 </p>
               </div>
 
               <FunnelStep
-                label="Visiteurs du site"
+                label={ta("a.dash.site_visitors")}
                 value={visitors}
                 max={visitors}
-                note="Toute personne qui ouvre le site, connectée ou non."
+                note={ta("a.dash.site_visitors_note")}
               />
               <FunnelStep
-                label="Visiteurs qui se sont connectés"
+                label={ta("a.dash.logged_visitors")}
                 value={logged}
                 max={visitors}
-                note={`${pct(logged, visitors)} % des visiteurs`}
+                note={ta("a.dash.pct_of_visitors", { p: pct(logged, visitors) })}
               />
               <FunnelStep
-                label="Clients qui ont réservé"
+                label={ta("a.dash.customers_booked")}
                 value={reservers}
                 max={visitors}
-                note={`${pct(reservers, logged)} % des connectés · ${pct(
-                  reservers,
-                  visitors
-                )} % des visiteurs`}
+                note={ta("a.dash.pct_of_logged_and_visitors", {
+                  a: pct(reservers, logged),
+                  b: pct(reservers, visitors),
+                })}
               />
 
               <p className="adm-note">
-                {num(loggedNoBooking)} personne(s) se sont connectées sans
-                réserver. Visiteurs restés sans compte : {num(Math.max(visitors - logged, 0))}.
+                {ta("a.dash.no_booking_note", {
+                  n: num(loggedNoBooking, locale),
+                  m: num(Math.max(visitors - logged, 0), locale),
+                })}
               </p>
             </div>
 
             <div className="adm-card space-y-5">
               <div>
-                <h2 className="adm-h2">Comment arrivent-ils ?</h2>
+                <h2 className="adm-h2">{ta("a.dash.sources_title")}</h2>
                 <p className="adm-sub !mt-0.5">
-                  Visites : une par ouverture du site.
+                  {ta("a.dash.sources_sub")}
                 </p>
               </div>
 
               <FunnelStep
-                label="Lien tapé ou favori (accès direct)"
+                label={ta("a.dash.direct_access")}
                 value={s.sessions_direct || 0}
                 max={sessions}
-                note={`${pct(s.sessions_direct || 0, sessions)} % des visites`}
+                note={ta("a.dash.pct_of_visits", { p: pct(s.sessions_direct || 0, sessions) })}
               />
               <FunnelStep
-                label="Venus d'un autre site ou d'un partage"
+                label={ta("a.dash.referral_access")}
                 value={s.sessions_referral || 0}
                 max={sessions}
-                note={`${pct(s.sessions_referral || 0, sessions)} % des visites`}
+                note={ta("a.dash.pct_of_visits", { p: pct(s.sessions_referral || 0, sessions) })}
               />
 
               <div>
                 <h3 className="mb-3 text-sm font-medium text-slate-300">
-                  Réservations par statut
+                  {ta("a.dash.reservations_by_status")}
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   <span className="adm-badge text-amber-300">
-                    En attente : {num(r.pending)}
+                    {ta("a.dash.status_pending", { n: num(r.pending, locale) })}
                   </span>
                   <span className="adm-badge text-emerald-300">
-                    Confirmées : {num(r.confirmed)}
+                    {ta("a.dash.status_confirmed", { n: num(r.confirmed, locale) })}
                   </span>
                   <span className="adm-badge text-red-300">
-                    Refusées : {num(r.rejected)}
+                    {ta("a.dash.status_rejected", { n: num(r.rejected, locale) })}
                   </span>
-                  <span className="adm-badge">Annulées : {num(r.cancelled)}</span>
+                  <span className="adm-badge">
+                    {ta("a.dash.status_cancelled", { n: num(r.cancelled, locale) })}
+                  </span>
                 </div>
               </div>
             </div>
@@ -272,8 +279,8 @@ export default function AdminPage() {
 
           {/* ---------- 7 derniers jours ---------- */}
           <section className="adm-card">
-            <h2 className="adm-h2">Visites des 7 derniers jours</h2>
-            <p className="adm-sub !mt-0.5">Pages vues par jour.</p>
+            <h2 className="adm-h2">{ta("a.dash.last7_title")}</h2>
+            <p className="adm-sub !mt-0.5">{ta("a.dash.last7_sub")}</p>
 
             <div className="mt-5 flex h-40 items-end gap-2 sm:gap-4">
               {daily.map((d) => {
@@ -284,7 +291,11 @@ export default function AdminPage() {
                   <div
                     key={d.day}
                     className="flex h-full flex-1 flex-col items-center justify-end gap-1"
-                    title={`${d.day} : ${d.visits} pages vues, ${d.visitors} visiteur(s)`}
+                    title={ta("a.dash.day_tooltip", {
+                      day: d.day,
+                      visits: d.visits,
+                      visitors: d.visitors,
+                    })}
                   >
                     <span className="font-mono text-xs text-slate-400">
                       {d.visits}
@@ -305,10 +316,10 @@ export default function AdminPage() {
           {/* ---------- Circuits ---------- */}
           <section className="grid gap-4 lg:grid-cols-2">
             <div className="adm-card space-y-4">
-              <h2 className="adm-h2">Circuits les plus consultés</h2>
+              <h2 className="adm-h2">{ta("a.dash.most_viewed_title")}</h2>
 
               {mostViewed.length === 0 ? (
-                <p className="adm-empty">Pas encore de données.</p>
+                <p className="adm-empty">{ta("a.dash.no_data")}</p>
               ) : (
                 <ul className="space-y-4">
                   {mostViewed.map((c) => (
@@ -318,7 +329,10 @@ export default function AdminPage() {
                           {c.title}
                         </p>
                         <p className="shrink-0 font-mono text-sm text-slate-400">
-                          {num(c.views)} vues · {num(c.reservations)} résa.
+                          {ta("a.dash.views_resa", {
+                            views: num(c.views, locale),
+                            resa: num(c.reservations, locale),
+                          })}
                         </p>
                       </div>
                       <Bar value={c.views} max={maxCircuitViews} />
@@ -329,10 +343,10 @@ export default function AdminPage() {
             </div>
 
             <div className="adm-card space-y-4">
-              <h2 className="adm-h2">Circuits les mieux notés</h2>
+              <h2 className="adm-h2">{ta("a.dash.best_rated_title")}</h2>
 
               {bestRated.length === 0 ? (
-                <p className="adm-empty">Aucun avis approuvé pour l&apos;instant.</p>
+                <p className="adm-empty">{ta("a.dash.no_approved_reviews")}</p>
               ) : (
                 <ul className="space-y-3">
                   {bestRated.map((c) => (
@@ -349,7 +363,7 @@ export default function AdminPage() {
                           {Number(c.rating).toFixed(1)}
                         </span>{" "}
                         <span className="text-xs text-slate-500">
-                          ({num(c.rating_count)})
+                          ({num(c.rating_count, locale)})
                         </span>
                       </p>
                     </li>
@@ -362,14 +376,14 @@ export default function AdminPage() {
           {/* ---------- Lieux ---------- */}
           <section className="adm-card space-y-4">
             <div>
-              <h2 className="adm-h2">Lieux les plus visités</h2>
+              <h2 className="adm-h2">{ta("a.dash.top_places_title")}</h2>
               <p className="adm-sub !mt-0.5">
-                Pages de lieux ouvertes depuis « À découvrir » et la page Explorer.
+                {ta("a.dash.top_places_sub")}
               </p>
             </div>
 
             {places.length === 0 ? (
-              <p className="adm-empty">Pas encore de données.</p>
+              <p className="adm-empty">{ta("a.dash.no_data")}</p>
             ) : (
               <ul className="space-y-4">
                 {places.map((p) => (
@@ -379,7 +393,7 @@ export default function AdminPage() {
                         {p.name}
                       </p>
                       <p className="shrink-0 font-mono text-sm text-slate-400">
-                        {num(p.views)} vues
+                        {ta("a.dash.views_count", { n: num(p.views, locale) })}
                       </p>
                     </div>
                     <Bar value={p.views} max={maxPlace} tone="amber" />
@@ -390,9 +404,7 @@ export default function AdminPage() {
           </section>
 
           <p className="text-xs text-slate-500">
-            Les visites sont comptées depuis l&apos;installation de la v11. Un
-            visiteur est reconnu grâce à un identifiant anonyme gardé dans son
-            navigateur (s&apos;il change d&apos;appareil, il compte pour un autre).
+            {ta("a.dash.footer_note")}
           </p>
         </>
       )}

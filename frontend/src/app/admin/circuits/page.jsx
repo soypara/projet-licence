@@ -9,10 +9,12 @@ import CircuitForm from "@/components/admin/CircuitForm";
 import PendingPhotos from "@/components/admin/PendingPhotos";
 import { uploadFiles } from "@/lib/uploadMedia";
 import { emptyCircuitForm, buildCircuitPayload } from "@/lib/circuitForm";
+import { useAT } from "@/components/admin/AdminLanguage";
 
 export default function AdminCircuitsPage() {
   const router = useRouter();
   const { showPopup } = usePopup();
+  const { ta, locale } = useAT();
 
   const [circuits, setCircuits] = useState([]);
   const [places, setPlaces] = useState([]);
@@ -39,7 +41,7 @@ export default function AdminCircuitsPage() {
       setCircuits(circuitsData || []);
       setPlaces(placesData || []);
     } catch (err) {
-      setError(err.message || "Impossible de charger les données.");
+      setError(err.message || ta("a.cir.list_load_error"));
     } finally {
       setLoading(false);
     }
@@ -52,12 +54,12 @@ export default function AdminCircuitsPage() {
   async function handleCreate(e) {
     e.preventDefault();
 
-    const built = buildCircuitPayload(form);
+    const built = buildCircuitPayload(form, ta);
 
     if (built.error) {
       showPopup({
         kind: "error",
-        title: "Formulaire incomplet",
+        title: ta("a.cir.list_incomplete_title"),
         message: built.error,
       });
       return;
@@ -83,7 +85,10 @@ export default function AdminCircuitsPage() {
         // Le circuit existe : on reste ici pour afficher l'erreur
         setCreatedId(created.id);
         setError(
-          `Circuit créé, mais ${failures.length} fichier(s) n'ont pas été envoyés : ${failures[0].message}`
+          ta("a.cir.list_upload_partial", {
+            n: failures.length,
+            msg: failures[0].message,
+          })
         );
         setCreating(false);
         return;
@@ -94,8 +99,8 @@ export default function AdminCircuitsPage() {
     } catch (err) {
       showPopup({
         kind: "error",
-        title: "Création impossible",
-        message: err.message || "Impossible de créer le circuit.",
+        title: ta("a.cir.list_create_failed_title"),
+        message: err.message || ta("a.cir.list_create_failed_msg"),
       });
       setCreating(false);
     }
@@ -103,7 +108,7 @@ export default function AdminCircuitsPage() {
 
   async function handleDelete(id) {
     const confirmed = window.confirm(
-      "Voulez-vous vraiment supprimer ce circuit ?"
+      ta("a.cir.list_confirm_delete")
     );
 
     if (!confirmed) return;
@@ -117,7 +122,7 @@ export default function AdminCircuitsPage() {
         current.filter((circuit) => circuit.id !== id)
       );
     } catch (err) {
-      setError(err.message || "Impossible de supprimer le circuit.");
+      setError(err.message || ta("a.cir.list_delete_failed"));
     }
   }
 
@@ -133,15 +138,15 @@ export default function AdminCircuitsPage() {
   return (
     <div className="mx-auto max-w-6xl">
       <div className="mb-6">
-        <h1 className="adm-h1">Circuits</h1>
-        <p className="adm-sub">Gestion des circuits touristiques.</p>
+        <h1 className="adm-h1">{ta("a.cir.list_title")}</h1>
+        <p className="adm-sub">{ta("a.cir.list_subtitle")}</p>
       </div>
 
       {error && <div className="adm-alert mb-6">{error}</div>}
 
       {/* Création */}
       <section className="adm-card mb-6">
-        <h2 className="adm-h2">Ajouter un circuit</h2>
+        <h2 className="adm-h2">{ta("a.cir.list_add_title")}</h2>
 
         <form onSubmit={handleCreate} className="mt-4 grid gap-5">
           <CircuitForm value={form} onChange={setForm} places={places}>
@@ -153,7 +158,7 @@ export default function AdminCircuitsPage() {
               href={`/admin/circuits/${createdId}`}
               className="adm-btn-ghost w-full sm:w-fit"
             >
-              Ouvrir le circuit créé pour ajouter les photos
+              {ta("a.cir.list_open_created")}
             </Link>
           )}
 
@@ -162,7 +167,7 @@ export default function AdminCircuitsPage() {
             disabled={creating}
             className="adm-btn w-full sm:w-fit"
           >
-            {creating ? "Création..." : "Créer le circuit"}
+            {creating ? ta("a.cir.list_creating") : ta("a.cir.list_create_btn")}
           </button>
         </form>
       </section>
@@ -171,23 +176,23 @@ export default function AdminCircuitsPage() {
       <section className="adm-card">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="adm-h2">Circuits existants</h2>
-            <p className="adm-sub !mt-0">{circuits.length} circuit(s)</p>
+            <h2 className="adm-h2">{ta("a.cir.list_existing_title")}</h2>
+            <p className="adm-sub !mt-0">{ta("a.cir.list_count", { n: circuits.length })}</p>
           </div>
 
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher..."
+            placeholder={ta("a.cir.list_search_placeholder")}
             className="adm-input sm:max-w-xs"
           />
         </div>
 
         {loading ? (
-          <div className="adm-empty">Chargement des circuits...</div>
+          <div className="adm-empty">{ta("a.cir.list_loading")}</div>
         ) : filteredCircuits.length === 0 ? (
-          <div className="adm-empty">Aucun circuit trouvé.</div>
+          <div className="adm-empty">{ta("a.cir.list_none_found")}</div>
         ) : (
           <div className="mt-5 space-y-3">
             {filteredCircuits.map((circuit) => (
@@ -206,16 +211,22 @@ export default function AdminCircuitsPage() {
                     )}
 
                     <p className="mt-2 font-mono text-sm text-emerald-400">
-                      dès {Number(circuit.price || 0).toLocaleString()} MGA
+                      {ta("a.cir.list_from_price", {
+                        price: Number(circuit.price || 0).toLocaleString(locale),
+                      })}
                       {circuit.duration_days
-                        ? ` · ${circuit.duration_days} j`
+                        ? ` · ${ta("a.cir.list_duration_days", {
+                            n: circuit.duration_days,
+                          })}`
                         : ""}
                     </p>
 
                     <p className="mt-1 text-xs text-slate-400">
                       {circuit.departures?.length
-                        ? `${circuit.departures.length} départ(s) à venir`
-                        : "Aucun départ à venir"}
+                        ? ta("a.cir.list_departures_count", {
+                            n: circuit.departures.length,
+                          })
+                        : ta("a.cir.list_no_departures")}
                     </p>
                   </div>
 
@@ -224,7 +235,7 @@ export default function AdminCircuitsPage() {
                       href={`/admin/circuits/${circuit.id}`}
                       className="adm-btn-ghost"
                     >
-                      Gérer
+                      {ta("a.cir.list_manage")}
                     </Link>
 
                     <button
@@ -232,7 +243,7 @@ export default function AdminCircuitsPage() {
                       onClick={() => handleDelete(circuit.id)}
                       className="adm-btn-danger"
                     >
-                      Supprimer
+                      {ta("a.cir.list_delete")}
                     </button>
                   </div>
                 </div>

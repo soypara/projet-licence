@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
+import { useAT } from "@/components/admin/AdminLanguage";
 
 // Choix des photos AVANT la création : elles sont envoyées dès que le
 // circuit est enregistré (il faut d'abord son identifiant).
 export default function PendingPhotos({ files, onChange }) {
+  const { ta } = useAT();
   const previews = useMemo(
     () =>
       files.map((file) => ({
@@ -33,7 +35,7 @@ export default function PendingPhotos({ files, onChange }) {
   return (
     <div>
       {previews.length === 0 ? (
-        <p className="py-2 text-sm text-slate-500">Aucune photo choisie.</p>
+        <p className="py-2 text-sm text-slate-500">{ta("a.cir.pending_none")}</p>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {previews.map((p, index) => (
@@ -65,7 +67,7 @@ export default function PendingPhotos({ files, onChange }) {
       )}
 
       <label className="adm-btn-ghost mt-3 w-full cursor-pointer sm:w-auto">
-        + Choisir des photos / vidéos
+        {ta("a.cir.pending_choose")}
         <input
           type="file"
           accept="image/*,video/*"

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { usePopup } from "@/components/PopupProvider";
+import { useAT } from "@/components/admin/AdminLanguage";
 import {
   endOf,
   formatRange,
@@ -10,13 +11,14 @@ import {
   todayIso,
 } from "@/lib/dates";
 
-const WEEKDAYS = ["Lu", "Ma", "Me", "Je", "Ve", "Sa", "Di"];
+// Jours de la semaine (lundi en premier) générés avec la langue de l'admin
+const weekdayNames = (locale) =>
+  Array.from({ length: 7 }, (_, i) =>
+    new Date(2024, 0, 1 + i, 12).toLocaleDateString(locale, { weekday: "short" })
+  );
 
-const frT = (key, vars) =>
-  key === "dep.one_day" ? `le ${vars.from}` : `du ${vars.from} au ${vars.to}`;
-
-function monthLabel(year, month) {
-  const label = new Date(year, month, 1).toLocaleDateString("fr-FR", {
+function monthLabel(year, month, locale) {
+  const label = new Date(year, month, 1).toLocaleDateString(locale, {
     month: "long",
     year: "numeric",
   });
@@ -42,6 +44,7 @@ function overlaps(startA, startB, duration) {
 }
 
 function Month({ year, month, duration, draft, hover, setHover, onDayClick }) {
+  const { locale } = useAT();
   const today = todayIso();
   const hoverEnd = hover ? endOf(hover, duration) : null;
   const hoverConflict = hover
@@ -51,11 +54,11 @@ function Month({ year, month, duration, draft, hover, setHover, onDayClick }) {
   return (
     <div>
       <p className="mb-2 text-center text-sm font-semibold text-slate-100">
-        {monthLabel(year, month)}
+        {monthLabel(year, month, locale)}
       </p>
 
       <div className="grid grid-cols-7 gap-y-1 text-center text-xs text-slate-500">
-        {WEEKDAYS.map((w) => (
+        {weekdayNames(locale).map((w) => (
           <span key={w} className="py-1">
             {w}
           </span>
@@ -93,7 +96,7 @@ function Month({ year, month, duration, draft, hover, setHover, onDayClick }) {
               onClick={() => onDayClick(iso)}
               onMouseEnter={() => setHover(iso)}
               onMouseLeave={() => setHover(null)}
-              aria-label={parseIso(iso).toLocaleDateString("fr-FR", {
+              aria-label={parseIso(iso).toLocaleDateString(locale, {
                 day: "numeric",
                 month: "long",
                 year: "numeric",
@@ -122,6 +125,7 @@ export default function DepartureCalendarModal({
   onClose,
 }) {
   const { showPopup } = usePopup();
+  const { ta, locale } = useAT();
 
   const [draft, setDraft] = useState(() => [...selected].sort());
   const [hover, setHover] = useState(null);
@@ -152,10 +156,8 @@ export default function DepartureCalendarModal({
     if (draft.some((s) => overlaps(s, iso, duration))) {
       showPopup({
         kind: "error",
-        title: "Dates déjà prises",
-        message:
-          "Ces jours chevauchent un autre départ de ce circuit. Choisis un premier jour qui laisse la place aux " +
-          `${duration} jours.`,
+        title: ta("a.dep.taken_title"),
+        message: ta("a.dep.taken_message", { n: duration }),
       });
       return;
     }
@@ -175,25 +177,23 @@ export default function DepartureCalendarModal({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Choisir les dates de départ"
+        aria-label={ta("a.dep.dialog_label")}
         className="flex h-[min(90vh,780px)] w-[min(96vw,1040px)] flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 text-slate-200 shadow-2xl"
       >
         <header className="flex items-start justify-between gap-4 border-b border-slate-800 p-4 sm:p-5">
           <div>
             <h2 className="text-lg font-semibold text-slate-50">
-              Dates de départ
+              {ta("a.dep.title")}
             </h2>
             <p className="mt-1 text-sm text-slate-400">
-              Durée du circuit : <strong>{duration} jour(s)</strong>. Clique le
-              1er jour du départ : les {duration} jours se sélectionnent d&apos;un
-              coup. Reclique pour retirer.
+              {ta("a.dep.help", { n: duration })}
             </p>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            aria-label="Fermer"
+            aria-label={ta("a.dep.close")}
             className="adm-btn-ghost !px-3 !py-1.5"
           >
             ✕
@@ -207,7 +207,7 @@ export default function DepartureCalendarModal({
                 type="button"
                 onClick={() => shift(-1)}
                 className="adm-btn-ghost !px-3"
-                aria-label="Mois précédent"
+                aria-label={ta("a.dep.prev_month")}
               >
                 ←
               </button>
@@ -215,7 +215,7 @@ export default function DepartureCalendarModal({
                 type="button"
                 onClick={() => shift(1)}
                 className="adm-btn-ghost !px-3"
-                aria-label="Mois suivant"
+                aria-label={ta("a.dep.next_month")}
               >
                 →
               </button>
@@ -248,11 +248,11 @@ export default function DepartureCalendarModal({
 
           <aside className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-emerald-400">
-              Départs choisis ({draft.length})
+              {ta("a.dep.chosen", { n: draft.length })}
             </p>
 
             {draft.length === 0 ? (
-              <p className="text-sm text-slate-500">Aucun pour l&apos;instant.</p>
+              <p className="text-sm text-slate-500">{ta("a.dep.none")}</p>
             ) : (
               <ul className="space-y-2">
                 {draft.map((start) => (
@@ -261,14 +261,14 @@ export default function DepartureCalendarModal({
                     className="adm-row flex items-center justify-between gap-2 !py-2"
                   >
                     <span className="text-sm text-slate-100">
-                      {formatRange(start, endOf(start, duration), "fr-FR", frT)}
+                      {formatRange(start, endOf(start, duration), locale, ta)}
                     </span>
                     <button
                       type="button"
                       onClick={() =>
                         setDraft((current) => current.filter((s) => s !== start))
                       }
-                      aria-label="Retirer ce départ"
+                      aria-label={ta("a.dep.remove")}
                       className="adm-btn-danger !px-2 !py-1"
                     >
                       ✕
@@ -282,10 +282,10 @@ export default function DepartureCalendarModal({
 
         <footer className="flex flex-col-reverse gap-2 border-t border-slate-800 p-4 sm:flex-row sm:justify-end sm:p-5">
           <button type="button" onClick={onClose} className="adm-btn-ghost">
-            Annuler
+            {ta("a.dep.cancel")}
           </button>
           <button type="button" onClick={() => onSave(draft)} className="adm-btn">
-            Valider ces dates
+            {ta("a.dep.confirm")}
           </button>
         </footer>
       </div>

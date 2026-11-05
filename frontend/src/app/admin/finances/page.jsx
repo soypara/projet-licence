@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { api } from "@/lib/api";
+import { useAT } from "@/components/admin/AdminLanguage";
 import { useAdminRole } from "@/components/admin/AdminRole";
 import { isSuperAdmin } from "@/lib/roles";
 import { CURRENCIES, formatExact, formatInCurrency } from "@/lib/currency";
@@ -14,12 +15,14 @@ import { formatDay } from "@/lib/dates";
 // (non remboursables). Montants exacts, sans arrondi.
 
 function AgencyCard({ balanceMga }) {
+  const { ta, locale } = useAT();
+
   return (
     <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-emerald-800 bg-gradient-to-br from-emerald-700 via-emerald-800 to-slate-900 p-5 text-white shadow-xl">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs uppercase tracking-widest text-emerald-100/80">
-            Carte de l'agence (fictive)
+            {ta("a.fin.card_title")}
           </p>
           <p className="mt-0.5 font-sans text-lg font-semibold">
             Madagascar Tour
@@ -34,16 +37,17 @@ function AgencyCard({ balanceMga }) {
       </p>
 
       <p className="mt-5 text-xs uppercase tracking-wider text-emerald-100/80">
-        Solde
+        {ta("a.fin.balance")}
       </p>
       <p className="font-mono text-3xl font-semibold">
-        {formatExact(balanceMga, "MGA")}
+        {formatExact(balanceMga, "MGA", locale)}
       </p>
     </div>
   );
 }
 
 export default function FinancesPage() {
+  const { ta, locale } = useAT();
   const role = useAdminRole();
   const router = useRouter();
 
@@ -75,11 +79,10 @@ export default function FinancesPage() {
     <div className="mx-auto max-w-6xl space-y-6">
       <div>
         <h1 className="font-sans text-2xl font-semibold text-slate-50">
-          Finances
+          {ta("a.fin.title")}
         </h1>
         <p className="text-sm text-slate-400">
-          Chaque acompte payé par un client arrive ici. Les acomptes ne sont pas
-          remboursables : une annulation ne retire rien du solde.
+          {ta("a.fin.subtitle")}
         </p>
       </div>
 
@@ -90,7 +93,7 @@ export default function FinancesPage() {
       )}
 
       {!ledger && !error && (
-        <p className="text-sm text-slate-400">Chargement...</p>
+        <p className="text-sm text-slate-400">{ta("a.fin.loading")}</p>
       )}
 
       {ledger && (
@@ -100,7 +103,7 @@ export default function FinancesPage() {
 
             <div className="adm-card">
               <h2 className="mb-2 font-sans text-base font-semibold text-slate-50">
-                Solde dans toutes les devises (valeurs exactes)
+                {ta("a.fin.all_currencies")}
               </h2>
 
               <table className="w-full font-mono text-sm">
@@ -109,7 +112,7 @@ export default function FinancesPage() {
                     <tr key={c} className="border-t border-slate-800">
                       <td className="py-1.5 pr-4 text-slate-400">{c}</td>
                       <td className="py-1.5 text-right text-slate-100">
-                        {formatExact(balance, c)}
+                        {formatExact(balance, c, locale)}
                       </td>
                     </tr>
                   ))}
@@ -117,39 +120,38 @@ export default function FinancesPage() {
               </table>
 
               <p className="mt-2 text-xs text-slate-500">
-                {ledger.count} paiement(s) reçu(s). Taux approximatifs
-                (lib/currency.js).
+                {ta("a.fin.payments_count", { n: ledger.count })}
               </p>
             </div>
           </div>
 
           <div className="adm-card">
             <h2 className="mb-3 font-sans text-base font-semibold text-slate-50">
-              Paiements reçus
+              {ta("a.fin.payments_received")}
             </h2>
 
             {entries.length === 0 ? (
               <p className="text-sm text-slate-400">
-                Aucun paiement pour l'instant.
+                {ta("a.fin.no_payments")}
               </p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[40rem] text-left text-sm">
                   <thead className="text-xs uppercase tracking-wider text-slate-500">
                     <tr>
-                      <th className="py-2 pr-3">Date</th>
-                      <th className="py-2 pr-3">Client</th>
-                      <th className="py-2 pr-3">Circuit</th>
-                      <th className="py-2 pr-3">Payé par le client</th>
-                      <th className="py-2 pr-3 text-right">Reçu (Ariary)</th>
-                      <th className="py-2">Carte / réf.</th>
+                      <th className="py-2 pr-3">{ta("a.fin.col_date")}</th>
+                      <th className="py-2 pr-3">{ta("a.fin.col_client")}</th>
+                      <th className="py-2 pr-3">{ta("a.fin.col_circuit")}</th>
+                      <th className="py-2 pr-3">{ta("a.fin.col_paid_by_client")}</th>
+                      <th className="py-2 pr-3 text-right">{ta("a.fin.col_received_ariary")}</th>
+                      <th className="py-2">{ta("a.fin.col_card_ref")}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {entries.map((e) => (
                       <tr key={e.id} className="border-t border-slate-800 align-top">
                         <td className="py-2 pr-3 text-slate-300">
-                          {new Date(e.created_at).toLocaleString("fr-FR")}
+                          {new Date(e.created_at).toLocaleString(locale)}
                         </td>
                         <td className="py-2 pr-3 text-slate-100">
                           {e.full_name || "—"}
@@ -158,17 +160,17 @@ export default function FinancesPage() {
                           {e.circuit_title || "—"}
                           {e.start_date && (
                             <span className="block text-xs text-slate-500">
-                              départ {formatDay(e.start_date, "fr-FR")}
+                              {ta("a.fin.departure", { date: formatDay(e.start_date, locale) })}
                             </span>
                           )}
                         </td>
                         <td className="py-2 pr-3 font-mono text-emerald-300">
                           {e.display_currency && e.display_amount != null
-                            ? formatInCurrency(e.display_amount, e.display_currency)
+                            ? formatInCurrency(e.display_amount, e.display_currency, locale)
                             : "—"}
                         </td>
                         <td className="py-2 pr-3 text-right font-mono text-slate-100">
-                          {formatExact(e.amount_mga, "MGA")}
+                          {formatExact(e.amount_mga, "MGA", locale)}
                         </td>
                         <td className="py-2 font-mono text-xs text-slate-400">
                           {e.card_brand} •••• {e.card_last4}

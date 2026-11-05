@@ -1,4 +1,26 @@
-﻿PACK v18 (calendrier clair, recherche generale, filtre de mots des avis)
+﻿PACK v19 (administration en 15 langues, independante du site)
+=============================================================
+Aucun SQL. Dezippe par-dessus ProjetLicense, relance le FRONTEND (le backend ne change pas).
+
+- Dans l'admin (barre laterale, sous "Mode clair/sombre") : liste "Langue de
+  l'administration" avec les 15 langues. Elle est INDEPENDANTE de la langue du
+  site client (cle "adminLang" dans le navigateur, la cle "lang" du site n'est
+  pas touchee). Exemple : admin en francais, site client en anglais, ou l'inverse.
+  Par defaut : francais.
+- Toutes les pages admin sont traduites : dashboard, planning, reservations,
+  circuits (liste, creation, gestion, calendrier de departs), lieux, commentaires,
+  finances, ainsi que le menu et les messages de validation du formulaire de circuit.
+  Dates, mois, jours et montants suivent la langue choisie. Arabe : l'admin passe
+  de droite a gauche.
+- Les textes du paiement de l'acompte, du nom a la reservation et de l'avis
+  publie sont maintenant traduits dans les 15 langues (avant : francais/anglais).
+- Fichiers : lib/i18n/adminDictionaries.js (admin), lib/i18n/payment.js (client),
+  components/admin/AdminLanguage.jsx (mecanisme).
+- Limites : les messages d'erreur qui viennent du backend restent en francais ;
+  les traductions sont faites par moi (latin, malagasy, hindi surtout) : a faire
+  relire par un locuteur avant la remise finale. Roles : "Admin" garde son nom.
+
+PACK v18 (calendrier clair, recherche generale, filtre de mots des avis)
 =======================================================================
 Aucun SQL a executer. Dezippe par-dessus ProjetLicense, relance BACKEND puis FRONTEND.
 

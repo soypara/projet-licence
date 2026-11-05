@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { uploadFiles } from "@/lib/uploadMedia";
 import { usePopup } from "@/components/PopupProvider";
 import PendingPhotos from "./PendingPhotos";
+import { useAT } from "@/components/admin/AdminLanguage";
 
 const EMPTY = { name: "", description: "", latitude: "", longitude: "" };
 
@@ -20,6 +21,7 @@ function toNumber(text) {
 // photos depuis l'ordinateur. (La recherche en ligne reste disponible.)
 export default function ManualPlaceForm() {
   const { showPopup } = usePopup();
+  const { ta } = useAT();
 
   const [form, setForm] = useState(EMPTY);
   const [files, setFiles] = useState([]);
@@ -39,15 +41,15 @@ export default function ManualPlaceForm() {
     const lon = toNumber(form.longitude);
 
     if (form.name.trim().length < 2) {
-      found.name = "Saisis le nom du lieu (2 caractères minimum).";
+      found.name = ta("a.plc.manual_err_name");
     }
 
     if (Number.isNaN(lat) || lat < -90 || lat > 90) {
-      found.latitude = "Latitude invalide : un nombre entre -90 et 90 (ex. -18,9).";
+      found.latitude = ta("a.plc.manual_err_lat");
     }
 
     if (Number.isNaN(lon) || lon < -180 || lon > 180) {
-      found.longitude = "Longitude invalide : un nombre entre -180 et 180 (ex. 47,5).";
+      found.longitude = ta("a.plc.manual_err_lon");
     }
 
     return { found, lat, lon };
@@ -72,16 +74,16 @@ export default function ManualPlaceForm() {
 
       showPopup({
         kind: failures.length ? "error" : "success",
-        title: failures.length ? "Lieu créé, photos manquantes" : "Lieu ajouté",
+        title: failures.length ? ta("a.plc.manual_popup_partial_title") : ta("a.plc.manual_popup_added_title"),
         message: failures.length
-          ? `« ${place.name} » est créé, mais ${failures.length} photo(s) n'ont pas été envoyées : ${failures[0].message}`
-          : `« ${place.name} » est maintenant disponible pour les circuits.`,
+          ? ta("a.plc.manual_popup_partial_msg", { name: place.name, n: failures.length, error: failures[0].message })
+          : ta("a.plc.manual_popup_added_msg", { name: place.name }),
       });
     } catch (err) {
       showPopup({
         kind: "error",
-        title: "Lieu non ajouté",
-        message: err.message || "Réessaie dans un instant.",
+        title: ta("a.plc.manual_popup_fail_title"),
+        message: err.message || ta("a.plc.manual_popup_fail_fallback"),
       });
     } finally {
       setSaving(false);
@@ -100,7 +102,7 @@ export default function ManualPlaceForm() {
 
       showPopup({
         kind: "error",
-        title: messages.length === 1 ? "Il manque une information" : "Il manque des informations",
+        title: messages.length === 1 ? ta("a.plc.manual_popup_missing_one") : ta("a.plc.manual_popup_missing_many"),
         message: messages.length === 1 ? messages[0] : "",
         items: messages.length === 1 ? [] : messages,
       });
@@ -114,11 +116,10 @@ export default function ManualPlaceForm() {
     if (!inMadagascar) {
       showPopup({
         kind: "error",
-        title: "Ces coordonnées sont hors de Madagascar",
-        message:
-          "Vérifie le signe de la latitude (à Madagascar elle est négative, ex. -18,9). Enregistrer quand même ?",
-        confirmLabel: "Enregistrer quand même",
-        cancelLabel: "Corriger",
+        title: ta("a.plc.manual_popup_outside_title"),
+        message: ta("a.plc.manual_popup_outside_msg"),
+        confirmLabel: ta("a.plc.manual_popup_outside_confirm"),
+        cancelLabel: ta("a.plc.manual_popup_outside_cancel"),
         onConfirm: () => save(lat, lon),
       });
 
@@ -134,13 +135,12 @@ export default function ManualPlaceForm() {
   return (
     <form onSubmit={handleSubmit} noValidate className="adm-card mt-6 grid gap-5">
       <p className="adm-note">
-        Pour un lieu qu&apos;on ne trouve pas en ligne : tout se saisit à la
-        main, les photos viennent de ton ordinateur.
+        {ta("a.plc.manual_intro")}
       </p>
 
       <div>
         <label htmlFor="m-name" className="adm-label">
-          Nom du lieu *
+          {ta("a.plc.manual_label_name")}
         </label>
         <input
           id="m-name"
@@ -154,7 +154,7 @@ export default function ManualPlaceForm() {
 
       <div>
         <label htmlFor="m-desc" className="adm-label">
-          Description (affichée dans les étapes du circuit)
+          {ta("a.plc.manual_label_description")}
         </label>
         <textarea
           id="m-desc"
@@ -169,13 +169,13 @@ export default function ManualPlaceForm() {
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label htmlFor="m-lat" className="adm-label">
-            Latitude *
+            {ta("a.plc.manual_label_lat")}
           </label>
           <input
             id="m-lat"
             name="latitude"
             inputMode="decimal"
-            placeholder="-18,9"
+            placeholder={ta("a.plc.manual_lat_placeholder")}
             value={form.latitude}
             onChange={change}
             className={`adm-input ${bad("latitude")}`}
@@ -187,13 +187,13 @@ export default function ManualPlaceForm() {
 
         <div>
           <label htmlFor="m-lon" className="adm-label">
-            Longitude *
+            {ta("a.plc.manual_label_lon")}
           </label>
           <input
             id="m-lon"
             name="longitude"
             inputMode="decimal"
-            placeholder="47,5"
+            placeholder={ta("a.plc.manual_lon_placeholder")}
             value={form.longitude}
             onChange={change}
             className={`adm-input ${bad("longitude")}`}
@@ -205,21 +205,21 @@ export default function ManualPlaceForm() {
       </div>
 
       <p className="-mt-2 text-xs text-slate-500">
-        À Madagascar : latitude entre -26 et -11, longitude entre 43 et 51.
+        {ta("a.plc.manual_range_hint")}
       </p>
 
       <div>
-        <label className="adm-label">Photos (depuis cet ordinateur)</label>
+        <label className="adm-label">{ta("a.plc.manual_label_photos")}</label>
         <PendingPhotos files={files} onChange={setFiles} />
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row">
         <button type="submit" disabled={saving} className="adm-btn w-full sm:w-auto">
-          {saving ? "Enregistrement..." : "Ajouter le lieu"}
+          {saving ? ta("a.plc.manual_saving") : ta("a.plc.manual_submit")}
         </button>
 
         <Link href="/admin/places/list" className="adm-btn-ghost w-full sm:w-auto">
-          Lieux existants
+          {ta("a.plc.existing_places")}
         </Link>
       </div>
     </form>

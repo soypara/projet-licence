@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useAT } from "@/components/admin/AdminLanguage";
 
 // Photos / vidéos d'un circuit ou d'un lieu (admin).
 // entityType : "circuit" | "tourist_place"
 export default function MediaManager({ entityType, entityId }) {
+  const { ta } = useAT();
   const [media, setMedia] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -65,7 +67,7 @@ export default function MediaManager({ entityType, entityId }) {
   }
 
   async function handleDelete(id) {
-    if (!window.confirm("Supprimer ce média ?")) return;
+    if (!window.confirm(ta("a.cir.media_confirm_delete"))) return;
 
     try {
       setError("");
@@ -81,9 +83,9 @@ export default function MediaManager({ entityType, entityId }) {
       {error && <div className="adm-alert mb-4">{error}</div>}
 
       {loading ? (
-        <p className="adm-empty">Chargement...</p>
+        <p className="adm-empty">{ta("a.cir.media_loading")}</p>
       ) : media.length === 0 ? (
-        <p className="py-4 text-sm text-slate-500">Aucun média.</p>
+        <p className="py-4 text-sm text-slate-500">{ta("a.cir.media_none")}</p>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {media.map((m) => (
@@ -110,7 +112,7 @@ export default function MediaManager({ entityType, entityId }) {
                   onClick={() => handleDelete(m.id)}
                   className="adm-btn-danger !px-2 !py-1 !text-xs"
                 >
-                  Supprimer
+                  {ta("a.cir.media_delete")}
                 </button>
               </div>
             </div>
@@ -119,7 +121,7 @@ export default function MediaManager({ entityType, entityId }) {
       )}
 
       <label className="adm-btn-ghost mt-4 w-full cursor-pointer !py-2.5 sm:w-auto">
-        {uploading ? "Envoi en cours..." : "+ Ajouter des photos / vidéos"}
+        {uploading ? ta("a.cir.media_uploading") : ta("a.cir.media_add")}
         <input
           type="file"
           accept="image/*,video/*"
