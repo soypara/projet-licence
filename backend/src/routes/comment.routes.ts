@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { asyncHandler } from "../utils/asyncHandler";
 import { authenticate } from "../middlewares/auth.middleware";
+import { requireStaff } from "../middlewares/role.middleware";
 import { validateBody } from "../middlewares/validate";
 
 import {
@@ -36,6 +37,7 @@ router.post(
 router.get(
   "/admin",
   authenticate,
+  requireStaff,
   asyncHandler(commentController.getAdminAll)
 );
 
@@ -43,6 +45,7 @@ router.get(
 router.put(
   "/:id/status",
   authenticate,
+  requireStaff,
   validateBody(commentStatusSchema),
   asyncHandler(commentController.updateStatus)
 );
@@ -54,3 +57,4 @@ router.delete(
 );
 
 export default router;
+

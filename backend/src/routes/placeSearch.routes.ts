@@ -3,6 +3,7 @@ import { asyncHandler } from "../utils/asyncHandler";
 import * as placeSearchController from "../controllers/placeSearch.controller";
 import * as placeImportController from "../controllers/placeImport.controller";
 import { authenticate } from "../middlewares/auth.middleware";
+import { requireStaff } from "../middlewares/role.middleware";
 
 const router = Router();
 
@@ -13,15 +14,9 @@ router.get("/search", asyncHandler(placeSearchController.search));
 router.post(
   "/import",
   authenticate,
+  requireStaff,
   asyncHandler(placeImportController.importPlace)
 );
 
-router.get("/auth-test", authenticate, (req, res) => {
-  res.json({
-    authenticated: true,
-    userId: req.user?.id,
-    email: req.user?.email,
-  });
-});
-
 export default router;
+

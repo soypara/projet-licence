@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { TAGS } from "../utils/discoverTags";
+
 export const touristPlaceSchema = z.object({
   name: z.string().min(2, "Le nom doit contenir au moins 2 caractères."),
   description: z.string().optional().default(""),
@@ -12,6 +14,13 @@ export const touristPlaceSchema = z.object({
     .url("URL invalide.")
     .optional()
     .or(z.literal("")),
+
+  // Recherche intelligente : catégories du lieu et mois recommandés
+  tags: z.array(z.enum(TAGS)).max(TAGS.length).optional(),
+  best_months: z
+    .array(z.number().int().min(1).max(12))
+    .max(12)
+    .optional(),
 });
 
 export const touristPlaceUpdateSchema = touristPlaceSchema.partial();

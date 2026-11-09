@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { asyncHandler } from "../utils/asyncHandler";
 import { authenticate } from "../middlewares/auth.middleware";
+import { requireStaff } from "../middlewares/role.middleware";
 import { validateBody } from "../middlewares/validate";
 
 import {
@@ -25,6 +26,7 @@ router.get(
 router.post(
   "/",
   authenticate,
+  requireStaff,
   validateBody(touristPlaceSchema),
   asyncHandler(touristPlaceController.create)
 );
@@ -32,6 +34,7 @@ router.post(
 router.put(
   "/:id",
   authenticate,
+  requireStaff,
   validateBody(touristPlaceUpdateSchema),
   asyncHandler(touristPlaceController.update)
 );
@@ -39,7 +42,9 @@ router.put(
 router.delete(
   "/:id",
   authenticate,
+  requireStaff,
   asyncHandler(touristPlaceController.remove)
 );
 
 export default router;
+

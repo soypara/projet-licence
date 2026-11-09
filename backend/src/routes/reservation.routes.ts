@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { asyncHandler } from "../utils/asyncHandler";
 import { authenticate } from "../middlewares/auth.middleware";
+import { requireStaff } from "../middlewares/role.middleware";
 import { validateBody } from "../middlewares/validate";
 
 import {
@@ -41,6 +42,7 @@ router.post(
 router.get(
   "/",
   authenticate,
+  requireStaff,
   asyncHandler(reservationController.getAll)
 );
 
@@ -48,6 +50,7 @@ router.get(
 router.put(
   "/:id/status",
   authenticate,
+  requireStaff,
   validateBody(reservationStatusSchema),
   asyncHandler(reservationController.updateStatus)
 );

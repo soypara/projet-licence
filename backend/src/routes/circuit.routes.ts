@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { asyncHandler } from "../utils/asyncHandler";
 import { authenticate } from "../middlewares/auth.middleware";
+import { requireStaff } from "../middlewares/role.middleware";
 import { validateBody } from "../middlewares/validate";
 
 import {
@@ -27,6 +28,7 @@ router.get(
 router.post(
   "/",
   authenticate,
+  requireStaff,
   validateBody(circuitSchema),
   asyncHandler(circuitController.create)
 );
@@ -34,6 +36,7 @@ router.post(
 router.put(
   "/:id",
   authenticate,
+  requireStaff,
   validateBody(circuitUpdateSchema),
   asyncHandler(circuitController.update)
 );
@@ -41,6 +44,7 @@ router.put(
 router.delete(
   "/:id",
   authenticate,
+  requireStaff,
   asyncHandler(circuitController.remove)
 );
 
@@ -48,6 +52,7 @@ router.delete(
 router.put(
   "/:id/places",
   authenticate,
+  requireStaff,
   validateBody(circuitPlacesSchema),
   asyncHandler(circuitController.replacePlaces)
 );
@@ -56,6 +61,7 @@ router.put(
 router.put(
   "/:id/departures",
   authenticate,
+  requireStaff,
   validateBody(circuitDeparturesSchema),
   asyncHandler(circuitController.replaceDepartures)
 );
@@ -63,12 +69,14 @@ router.put(
 router.post(
   "/:id/places/:placeId",
   authenticate,
+  requireStaff,
   asyncHandler(circuitController.linkTouristPlace)
 );
 
 router.delete(
   "/:id/places/:placeId",
   authenticate,
+  requireStaff,
   asyncHandler(circuitController.unlinkTouristPlace)
 );
 

@@ -17,6 +17,13 @@ export function errorHandler(
   _next: NextFunction
 ) {
   if (err instanceof AppError) {
+    // Erreurs serveur (500+) : le détail technique (base de données...) reste dans
+    // la console du serveur, le visiteur ne voit qu'un message général.
+    if (err.statusCode >= 500) {
+      console.error("Erreur serveur :", err.message);
+      return res.status(err.statusCode).json({ message: "Erreur interne du serveur." });
+    }
+
     return res.status(err.statusCode).json({ message: err.message });
   }
 
